@@ -45,5 +45,5 @@
     renderRoute();
   }
 
-  window.Router = { init };
+  window.Router = { init, render: renderRoute };
 })();

@@ -21,26 +21,50 @@ window.MockData = (function () {
     {
       id: 1,
       author_id: 1,
-      title: "Welcome to the Blog Platform",
-      content: "This is a static mock post introducing the platform.",
+      title: "What’s New in Our Blog Platform",
+      content: "We’ve kicked off a clean single-page experience focused on speed and clarity. Expect practical guides on building with PHP, Flight, and MySQL, plus UI notes that keep things elegant without the noise.",
       category_id: 1,
       created_at: "2025-10-05T12:00:00Z"
     },
     {
       id: 2,
       author_id: 1,
-      title: "Designing a Minimal Yet Interesting Theme",
-      content: "Thoughts on building clean, modern UI with subtle accents.",
+      title: "Designing Minimal Interfaces That Still Pop",
+      content: "Minimal doesn’t mean boring. Thoughtful typography, restrained color, and micro-interactions create calm interfaces that still feel alive. Here’s how we approach hierarchy, spacing, and motion.",
       category_id: 2,
       created_at: "2025-10-06T15:30:00Z"
     },
     {
       id: 3,
       author_id: 2,
-      title: "How Hash Routing Works",
-      content: "A brief overview of SPA hash routing and view rendering.",
+      title: "Hash Routing in a Nutshell",
+      content: "Hash routing keeps navigation instant by swapping views without a full reload. It’s perfect for small SPAs: simple to implement, no server config, and easy to reason about.",
       category_id: 2,
       created_at: "2025-10-07T09:45:00Z"
+    },
+    {
+      id: 4,
+      author_id: 1,
+      title: "From Sketch to Layout: A Quick Process",
+      content: "Start with content structure, then apply a system of scales for type and spacing. Add one accent color and keep contrast high. The result: readable, confident UI that respects the content.",
+      category_id: 2,
+      created_at: "2025-10-08T08:20:00Z"
+    },
+    {
+      id: 5,
+      author_id: 1,
+      title: "Project Roadmap",
+      content: "Upcoming features include authentication with JWT, role-based dashboards, and a clean REST API with FlightPHP. We’ll document everything with OpenAPI and wire it into the SPA via AJAX.",
+      category_id: 1,
+      created_at: "2025-10-09T16:05:00Z"
+    },
+    {
+      id: 6,
+      author_id: 2,
+      title: "Little Details That Improve Forms",
+      content: "Use floating labels sparingly, give inputs breathing room, and keep error states honest and readable. The best forms stay out of the way and support the task at hand.",
+      category_id: 2,
+      created_at: "2025-10-10T10:10:00Z"
     }
   ];
 
@@ -50,14 +74,19 @@ window.MockData = (function () {
     { post_id: 2, tag_id: 4 },
     { post_id: 2, tag_id: 1 },
     { post_id: 3, tag_id: 1 },
-    { post_id: 3, tag_id: 5 }
+    { post_id: 3, tag_id: 5 },
+    { post_id: 4, tag_id: 4 },
+    { post_id: 5, tag_id: 2 },
+    { post_id: 5, tag_id: 3 },
+    { post_id: 6, tag_id: 4 },
+    { post_id: 6, tag_id: 5 }
   ];
 
   const comments = [
-    { id: 1, post_id: 1, user_id: 2, content: "Looks great!", created_at: "2025-10-08T10:00:00Z", status: "visible" },
-    { id: 2, post_id: 1, user_id: 2, content: "Excited to see more.", created_at: "2025-10-08T10:10:00Z", status: "visible" },
-    { id: 3, post_id: 2, user_id: 1, content: "Agree on the aesthetic.", created_at: "2025-10-08T11:00:00Z", status: "visible" },
-    { id: 4, post_id: 3, user_id: 2, content: "Helpful explanation.", created_at: "2025-10-08T12:00:00Z", status: "visible" }
+    { id: 1, post_id: 1, user_id: 2, content: "Great direction. Looking forward to the API docs!", created_at: "2025-10-08T10:00:00Z", status: "visible" },
+    { id: 2, post_id: 1, user_id: 2, content: "Typography feels really nice.", created_at: "2025-10-08T10:10:00Z", status: "visible" },
+    { id: 3, post_id: 2, user_id: 1, content: "Motion done right makes all the difference.", created_at: "2025-10-08T11:00:00Z", status: "visible" },
+    { id: 4, post_id: 3, user_id: 2, content: "Simple and effective explanation.", created_at: "2025-10-08T12:00:00Z", status: "visible" }
   ];
 
   function tagsForPost(postId) {

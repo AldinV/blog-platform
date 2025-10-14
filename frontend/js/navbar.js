@@ -21,7 +21,7 @@
             <li class="nav-item"><a class="nav-link" data-link="#/login" href="#/login">Login</a></li>
             <li class="nav-item"><a class="nav-link" data-link="#/register" href="#/register">Register</a></li>
             <li class="nav-item"><a class="nav-link" data-link="#/profile" href="#/profile">Profile</a></li>
-            <li class="nav-item"><a class="nav-link" data-link="#/logout" href="javascript:void(0)" onclick="alert('Static mock: no auth yet.')">Logout</a></li>
+            <li class="nav-item"><a class="nav-link" data-link="#/logout" href="javascript:void(0)" onclick="alert('To be implemented')">Logout</a></li>
           </ul>
         </div>
       </div>
