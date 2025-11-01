@@ -2,17 +2,15 @@
 require_once __DIR__ . '/BaseDao.php';
 
 class CommentsDao extends BaseDao {
-  private string $table = 'comments';
+  protected string $table = 'comments';
 
+  // Override to set default status
   public function create(array $data): array {
-    $data['created_at'] = $data['created_at'] ?? date('Y-m-d H:i:s');
     $data['status'] = $data['status'] ?? 'visible';
-    [$sql, $params] = $this->buildInsert($this->table, $data);
-    $this->execute($sql, $params);
-    $id = (int)$this->lastInsertId();
-    return $this->getById($id);
+    return parent::create($data);
   }
 
+  // Override getById to add JOINs for user and post details
   public function getById(int $id): ?array {
     return $this->fetch("SELECT c.*, u.name AS user_name, p.title AS post_title
                          FROM `{$this->table}` c
@@ -21,6 +19,7 @@ class CommentsDao extends BaseDao {
                          WHERE c.id = :id", [':id' => $id]);
   }
 
+  // Override listAll to add JOINs for user and post details
   public function listAll(int $limit = 100, int $offset = 0, string $orderBy = 'c.created_at DESC'): array {
     $base = "SELECT c.*, u.name AS user_name, p.title AS post_title
              FROM `{$this->table}` c
@@ -37,18 +36,9 @@ class CommentsDao extends BaseDao {
     return $this->paginate($base, [':postId' => $postId], $limit, $offset, $orderBy);
   }
 
-  public function update(int $id, array $data): ?array {
-    if (empty($data)) return $this->getById($id);
-    [$sql, $params] = $this->buildUpdate($this->table, $data, 'id = :id', [':id' => $id]);
-    $this->execute($sql, $params);
-    return $this->getById($id);
-  }
-
-  public function delete(int $id): int {
-    return $this->execute("DELETE FROM `{$this->table}` WHERE id = :id", [':id' => $id]);
-  }
-
   public function setStatus(int $id, string $status): ?array {
     return $this->update($id, ['status' => $status]);
   }
+  
+  // update() and delete() are inherited
 }

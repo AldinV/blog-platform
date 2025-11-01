@@ -2,7 +2,9 @@
 require_once __DIR__ . '/BaseDao.php';
 
 class PostTagsDao extends BaseDao {
-  private string $table = 'post_tags';
+  protected string $table = 'post_tags';
+  
+  // This DAO does not use the generic create, getById, update, or delete methods because it manages relationships, not a single entity with an id
 
   public function add(int $postId, int $tagId): int {
     $sql = "INSERT IGNORE INTO `{$this->table}` (post_id, tag_id) VALUES (:post_id, :tag_id)";

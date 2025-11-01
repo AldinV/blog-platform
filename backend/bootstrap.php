@@ -1,4 +1,7 @@
 <?php
+
+date_default_timezone_set('Europe/Sarajevo');
+
 function loadEnv(string $path): void {
   if (!is_file($path)) return;
   $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
