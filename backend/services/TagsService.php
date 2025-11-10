@@ -6,11 +6,28 @@ class TagsService extends BaseService {
   public function __construct() { parent::__construct(new TagsDao()); }
 
   protected function validateCreate(array &$data): void {
+    $this->trimStrings($data, ['name']);
     if (empty($data['name'])) throw new InvalidArgumentException('name is required');
+    $this->ensureMaxLength($data, 'name', 50);
+    /** @var TagsDao $dao */
+    $dao = $this->dao;
+    if ($dao->getByName($data['name'])) {
+      throw new InvalidArgumentException('Tag name already exists');
+    }
   }
 
   protected function validateUpdate(int $id, array &$data): void {
+    $this->trimStrings($data, ['name']);
     if (isset($data['name']) && $data['name'] === '') throw new InvalidArgumentException('name cannot be empty');
+    $this->ensureMaxLength($data, 'name', 50);
+    if (isset($data['name'])) {
+      /** @var TagsDao $dao */
+      $dao = $this->dao;
+      $existing = $dao->getByName($data['name']);
+      if ($existing && (int)$existing['id'] !== $id) {
+        throw new InvalidArgumentException('Tag name already exists');
+      }
+    }
   }
 
   public function getByName(string $name): ?array {

@@ -30,4 +30,25 @@ abstract class BaseService {
 
   protected function validateCreate(array &$data): void {}
   protected function validateUpdate(int $id, array &$data): void {}
+
+  protected function trimStrings(array &$data, array $fields): void {
+    foreach ($fields as $f) {
+      if (isset($data[$f]) && is_string($data[$f])) {
+        $data[$f] = trim($data[$f]);
+      }
+    }
+  }
+
+  protected function ensureMaxLength(array $data, string $field, int $max): void {
+    if (isset($data[$field]) && is_string($data[$field]) && mb_strlen($data[$field]) > $max) {
+      throw new InvalidArgumentException("$field exceeds $max characters");
+    }
+  }
+
+  protected function ensureEnum(array $data, string $field, array $allowed): void {
+    if (isset($data[$field]) && !in_array($data[$field], $allowed, true)) {
+      $allowedStr = implode(', ', $allowed);
+      throw new InvalidArgumentException("$field must be one of: $allowedStr");
+    }
+  }
 }
