@@ -4,6 +4,7 @@ Milestones delivered:
 
 - Milestone 1: Fully styled static SPA frontend (tabs, modals, mock data).
 - Milestone 2: MySQL schema and PHP PDO DAO layer with test script.
+- Milestone 3: REST API with Flight, Swagger docs, and business validations.
 
 ## Tech Stack
 
@@ -13,45 +14,9 @@ Milestones delivered:
 - Fonts: Google Fonts (`Inter`, `Playfair Display`)
 - Data (M1): In-memory mock data (`frontend/js/mockData.js`)
 - Backend (M2): PHP 8 + PDO (DAOs), MySQL 8, env-based config
+- Backend (M3): Flight microframework, swagger-php (OpenAPI 3.0), structured services with validations
 
-## Project Structure
-
-```
-blog-platform/
-  backend/
-    .env.example
-    .env                         # (not committed, create and copy .env.example)
-    bootstrap.php                # loads .env
-    database.sql                 # schema for all entities
-    routes/
-    services/
-    dao/
-      BaseDao.php
-      UsersDao.php
-      PostsDao.php
-      CategoriesDao.php
-      TagsDao.php
-      CommentsDao.php
-      PostTagsDao.php
-    test_dao.php                 # CLI verification for DAOs
-  frontend/
-    index.html
-    css/
-      styles.css
-    js/
-      utils.js
-      mockData.js
-      modal.js
-      navbar.js
-      views.js
-      router.js
-      app.js
-    assets/
-  docs/
-    ERD.png
-```
-
-## Features (Milestone 1)
+## Features
 
 - **SPA routing** via hash: instant navigation without page reloads.
 - **Home** with hero, featured CTA, and post cards.
@@ -135,6 +100,80 @@ Run the test script (PowerShell from project root):
 ```
 php backend\test_dao.php
 ```
+
+## Milestone 3 — REST API + Swagger
+
+### Overview
+
+- Implemented REST API using Flight (PHP microframework) and Services layer enforcing business rules.
+- Auto-generated OpenAPI 3.0 docs via swagger-php, with a Swagger UI page.
+- Error handling returns JSON with HTTP 4xx for validation errors or 404 for not found.
+
+### How to run the backend (XAMPP)
+
+There are two common setups. Choose ONE.
+
+Option A — Place the project inside `htdocs`
+
+1. Move the repo into `xampp\htdocs` (e.g. `C:\xampp\htdocs\blog-platform`).
+2. Ensure Apache `mod_rewrite` is enabled:
+   - XAMPP Control Panel → Apache → Config → `httpd.conf` → ensure this line is NOT commented:
+     - `LoadModule rewrite_module modules/mod_rewrite.so`
+3. Start Apache.
+4. Open:
+   - API base: http://localhost/blog-platform/backend
+   - Swagger UI: http://localhost/blog-platform/backend/public/v1/docs/
+   - OpenAPI JSON: http://localhost/blog-platform/backend/public/v1/docs/swagger.php
+
+Option B — Keep the project outside `htdocs` using an Apache Alias
+
+1. XAMPP Control Panel → Apache → Config → `httpd.conf`.
+2. Ensure `mod_rewrite` is enabled as above.
+3. Add an Alias pointing to your repo path:
+   ```
+   Alias /blog-platform "C:/Users/Korisnik/Desktop/blog-platform"
+   <Directory "C:/Users/Korisnik/Desktop/blog-platform">
+       Options Indexes FollowSymLinks
+       AllowOverride All
+       Require all granted
+   </Directory>
+   ```
+
+   Note: The Alias path should match your project path exactly.
+4. Restart Apache.
+5. Open the same URLs as in Option A.
+
+### Key endpoints
+
+- Users: `GET /users`, `GET /users/{id}`, `GET /users/by-email`, `POST /users`, `PUT /users/{id}`, `DELETE /users/{id}`
+- Categories: `GET /categories`, `GET /categories/{id}`, `GET /categories/by-name`, `POST /categories`, `PUT /categories/{id}`, `DELETE /categories/{id}`
+- Tags: `GET /tags`, `GET /tags/{id}`, `GET /tags/by-name`, `POST /tags`, `PUT /tags/{id}`, `DELETE /tags/{id}`
+- Posts: `GET /posts`, `GET /posts/{id}`, `POST /posts`, `PUT /posts/{id}`, `DELETE /posts/{id}`, `GET /posts/{id}/tags`, `PUT /posts/{id}/tags`
+- Comments: `GET /comments`, `GET /comments/{id}`, `POST /comments`, `PUT /comments/{id}`, `DELETE /comments/{id}`, `GET /posts/{postId}/comments`, `PATCH /comments/{id}/status`
+
+### Business rules & validations
+
+- Users
+  - Require `name`, `email`, `password_hash` on create.
+  - Email format and uniqueness (create/update).
+  - Role is `user` or `admin` (default `user`).
+- Categories
+  - Require `name`; max length; unique (create/update).
+- Tags
+  - Require `name`; max length; unique (create/update).
+- Posts
+  - Require `author_id`, `title`, `content`, `category_id` on create.
+  - `author_id` must exist and have role `admin` (admins are authors).
+  - `category_id` must exist.
+  - Max length checks for `title` and `content`.
+  - `tag_ids` accepted in create/update payloads but stored via join table; validated tag existence.
+- Comments
+  - Require `post_id`, `user_id`, `content` on create.
+  - `post_id` and `user_id` must exist.
+  - `status` enum: `visible` or `hidden`; default `visible`.
+  - Content length capped.
+
+See Swagger UI for full request/response schemas and examples.
 
 ## Running Frontend Locally
 
