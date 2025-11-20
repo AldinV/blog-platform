@@ -76,6 +76,7 @@ Flight::route('GET /posts/@id', function(int $id){
  * )
  */
 Flight::route('POST /posts', function(){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     $data = Flight::request()->data->getData();
     $tagIds = isset($data['tag_ids']) && is_array($data['tag_ids']) ? $data['tag_ids'] : [];
@@ -105,6 +106,7 @@ Flight::route('POST /posts', function(){
  * )
  */
 Flight::route('PUT /posts/@id', function(int $id){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     $data = Flight::request()->data->getData();
     $tagIds = [];
@@ -130,6 +132,7 @@ Flight::route('PUT /posts/@id', function(int $id){
  * )
  */
 Flight::route('DELETE /posts/@id', function(int $id){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     Flight::json([ 'deleted' => Flight::postsService()->delete($id) ]);
   } catch (Throwable $e) {
@@ -167,6 +170,7 @@ Flight::route('GET /posts/@id/tags', function(int $id){
  * )
  */
 Flight::route('PUT /posts/@id/tags', function(int $id){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     $data = Flight::request()->data->getData();
     $tagIds = isset($data['tag_ids']) && is_array($data['tag_ids']) ? $data['tag_ids'] : [];

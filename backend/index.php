@@ -22,6 +22,8 @@ require_once __DIR__ . '/services/CategoriesService.php';
 require_once __DIR__ . '/services/TagsService.php';
 require_once __DIR__ . '/services/PostsService.php';
 require_once __DIR__ . '/services/CommentsService.php';
+require_once __DIR__ . '/middleware/AuthMiddleware.php';
+require_once __DIR__ . '/data/roles.php';
 
 Flight::register('authService', 'AuthService');
 Flight::register('usersService', 'UsersService');
@@ -29,6 +31,7 @@ Flight::register('categoriesService', 'CategoriesService');
 Flight::register('tagsService', 'TagsService');
 Flight::register('postsService', 'PostsService');
 Flight::register('commentsService', 'CommentsService');
+Flight::register('auth_middleware', 'AuthMiddleware');
 
 // JWT middleware
 Flight::before('route', function(){
@@ -45,34 +48,7 @@ Flight::before('route', function(){
   }
 
   try {
-    $token = Flight::request()->getHeader('Authentication') ?: '';
-    // Flight header first
-    $authz = $token ? '' : (Flight::request()->getHeader('Authorization') ?: '');
-    // Fallback to common server variables set by Apache/CGI
-    if (!$authz && isset($_SERVER['HTTP_AUTHORIZATION'])) {
-      $authz = $_SERVER['HTTP_AUTHORIZATION'];
-    }
-    if (!$authz && isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
-      $authz = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
-    }
-    if (!$authz && function_exists('apache_request_headers')) {
-      $all = apache_request_headers();
-      foreach ($all as $k => $v) {
-        if (strcasecmp($k, 'Authorization') === 0) { $authz = $v; break; }
-      }
-    }
-    // Normalize Bearer value
-    if (!$token && $authz) {
-      if (stripos($authz, 'Bearer ') === 0) { $token = substr($authz, 7); }
-      else { $token = $authz; }
-    }
-
-    if (!$token) { Flight::halt(401, 'Missing authentication header'); }
-    $secret = getenv('JWT_SECRET') ?: '';
-    if ($secret === '') { Flight::halt(500, 'JWT secret not configured'); }
-    $decoded = JWT::decode($token, new Key($secret, 'HS256'));
-    Flight::set('user', $decoded->user ?? null);
-    Flight::set('jwt_token', $token);
+    Flight::auth_middleware()->verifyFromRequest();
   } catch (Throwable $e) {
     Flight::halt(401, $e->getMessage());
   }

@@ -88,6 +88,7 @@ Flight::route('GET /tags/by-name', function(){
  * )
  */
 Flight::route('POST /tags', function(){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     $data = Flight::request()->data->getData();
     Flight::json(Flight::tagsService()->create($data));
@@ -110,6 +111,7 @@ Flight::route('POST /tags', function(){
  * )
  */
 Flight::route('PUT /tags/@id:[0-9]+', function(int $id){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     $data = Flight::request()->data->getData();
     Flight::json(Flight::tagsService()->update($id, $data));
@@ -128,6 +130,7 @@ Flight::route('PUT /tags/@id:[0-9]+', function(int $id){
  * )
  */
 Flight::route('DELETE /tags/@id:[0-9]+', function(int $id){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     Flight::json([ 'deleted' => Flight::tagsService()->delete($id) ]);
   } catch (Throwable $e) {

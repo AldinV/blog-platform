@@ -26,6 +26,7 @@ use OpenApi\Annotations as OA;
  * )
  */
 Flight::route('GET /users', function(){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     $q = Flight::request()->query;
     $limit = isset($q['limit']) ? max(0, (int)$q['limit']) : 50;
@@ -57,6 +58,7 @@ Flight::route('GET /users', function(){
  * )
  */
 Flight::route('GET /users/@id:[0-9]+', function(int $id){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     $user = Flight::usersService()->getById($id);
     if (!$user) { Flight::json(['error' => 'User not found'], 404); return; }
@@ -77,6 +79,7 @@ Flight::route('GET /users/@id:[0-9]+', function(int $id){
  * )
  */
 Flight::route('GET /users/by-email', function(){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     $email = Flight::request()->query['email'] ?? '';
     if (!$email) { Flight::json(['error' => 'email is required'], 400); return; }
@@ -104,6 +107,7 @@ Flight::route('GET /users/by-email', function(){
  * )
  */
 Flight::route('POST /users', function(){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     $data = Flight::request()->data->getData();
     Flight::json(Flight::usersService()->create($data));
@@ -128,6 +132,7 @@ Flight::route('POST /users', function(){
  * )
  */
 Flight::route('PUT /users/@id:[0-9]+', function(int $id){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     $data = Flight::request()->data->getData();
     Flight::json(Flight::usersService()->update($id, $data));
@@ -146,6 +151,7 @@ Flight::route('PUT /users/@id:[0-9]+', function(int $id){
  * )
  */
 Flight::route('DELETE /users/@id:[0-9]+', function(int $id){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     Flight::json([ 'deleted' => Flight::usersService()->delete($id) ]);
   } catch (Throwable $e) {

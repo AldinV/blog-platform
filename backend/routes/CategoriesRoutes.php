@@ -88,6 +88,7 @@ Flight::route('GET /categories/by-name', function(){
  * )
  */
 Flight::route('POST /categories', function(){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     $data = Flight::request()->data->getData();
     Flight::json(Flight::categoriesService()->create($data));
@@ -110,6 +111,7 @@ Flight::route('POST /categories', function(){
  * )
  */
 Flight::route('PUT /categories/@id:[0-9]+', function(int $id){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     $data = Flight::request()->data->getData();
     Flight::json(Flight::categoriesService()->update($id, $data));
@@ -128,6 +130,7 @@ Flight::route('PUT /categories/@id:[0-9]+', function(int $id){
  * )
  */
 Flight::route('DELETE /categories/@id:[0-9]+', function(int $id){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     Flight::json([ 'deleted' => Flight::categoriesService()->delete($id) ]);
   } catch (Throwable $e) {
