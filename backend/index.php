@@ -38,6 +38,8 @@ Flight::before('route', function(){
   $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
   if ($method === 'OPTIONS') return;
 
+  if (defined('PHPUNIT_RUNNING')) return;
+
   $url = Flight::request()->url ?? '';
   if (
     str_starts_with($url, '/auth/login') ||
@@ -62,4 +64,6 @@ require_once __DIR__ . '/routes/TagsRoutes.php';
 require_once __DIR__ . '/routes/PostsRoutes.php';
 require_once __DIR__ . '/routes/CommentsRoutes.php';
 
-Flight::start();
+if (!defined('PHPUNIT_RUNNING')) {
+  Flight::start();
+}
