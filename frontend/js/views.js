@@ -90,39 +90,57 @@
         buttons: [
           { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
           { label: 'Create', class: 'btn btn-brand', onClick: function(){
-              window.MockData.categories.push({ id: nextId(window.MockData.categories), name: document.getElementById('cName').value.trim(), created_at: new Date().toISOString() });
-              document.querySelector('#app-modal .btn-close').click();
-              window.Router.render();
+              var name = (document.getElementById('cName')||{}).value || '';
+              if (!name.trim()) { toastr.warning('Name is required'); return; }
+              CategoriesService.create({ name: name.trim() })
+                .done(function(){ toastr.success('Category created'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); })
+                .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Create failed'; toastr.error(msg); });
           }}
         ]
       });
     },
     editCategory: function(id){
-      const c = window.MockData.categories.find(x=>x.id===id); if(!c) return;
-      Modal.open({
-        title: 'Edit Category',
-        body: `<div class="form-floating"><input id="cName" class="form-control" value="${c.name.replace(/"/g,'&quot;')}" placeholder="Name"><label for="cName">Name</label></div>`,
-        buttons: [
-          { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
-          { label: 'Save', class: 'btn btn-brand', onClick: function(){
-              c.name = document.getElementById('cName').value.trim();
-              document.querySelector('#app-modal .btn-close').click();
-              window.Router.render();
-          }}
-        ]
-      });
+      CategoriesService.getById(id)
+        .done(function(c){
+          if (!c) { toastr.error('Category not found'); return; }
+          var safeName = String(c.name||'').replace(/"/g,'&quot;');
+          Modal.open({
+            title: 'Edit Category',
+            body: `<div class="form-floating"><input id="cName" class="form-control" value="${safeName}" placeholder="Name"><label for="cName">Name</label></div>`,
+            buttons: [
+              { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
+              { label: 'Save', class: 'btn btn-brand', onClick: function(){
+                  var name = (document.getElementById('cName')||{}).value || '';
+                  if (!name.trim()) { toastr.warning('Name is required'); return; }
+                  CategoriesService.update(id, { name: name.trim() })
+                    .done(function(){ toastr.success('Category updated'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); })
+                    .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Update failed'; toastr.error(msg); });
+              }}
+            ]
+          });
+        })
+        .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Load failed'; toastr.error(msg); });
     },
     deleteCategory: function(id){
       Modal.open({
         title: 'Delete Category',
-        body: 'Deleting a category will not move posts automatically.',
+        body: 'Are you sure you want to delete this category?',
         buttons: [
           { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
           { label: 'Delete', class: 'btn btn-outline-danger', onClick: function(){
-              const i = window.MockData.categories.findIndex(x=>x.id===id);
-              if(i>=0) window.MockData.categories.splice(i,1);
-              document.querySelector('#app-modal .btn-close').click();
-              window.Router.render();
+              CategoriesService.remove(id)
+                .done(function(){ toastr.success('Category deleted'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); })
+                .fail(function(xhr){
+                  var raw = (xhr && xhr.responseJSON && (xhr.responseJSON.message || xhr.responseJSON.error)) || (xhr && xhr.responseText) || '';
+                  var s = String(raw || '');
+                  var msg = 'Delete failed';
+                  if (/foreign key/i.test(s) || /Integrity constraint violation/i.test(s) || /\b1451\b/.test(s)) {
+                    msg = 'Cannot delete this category because it has posts. Please reassign or delete those posts first.';
+                  } else if (s) {
+                    msg = s;
+                  }
+                  toastr.error(msg);
+                });
           }}
         ]
       });
@@ -134,27 +152,36 @@
         buttons: [
           { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
           { label: 'Create', class: 'btn btn-brand', onClick: function(){
-              window.MockData.tags.push({ id: nextId(window.MockData.tags), name: document.getElementById('tName').value.trim(), created_at: new Date().toISOString() });
-              document.querySelector('#app-modal .btn-close').click();
-              window.Router.render();
+              var name = (document.getElementById('tName')||{}).value || '';
+              if (!name.trim()) { toastr.warning('Tag is required'); return; }
+              TagsService.create({ name: name.trim() })
+                .done(function(){ toastr.success('Tag created'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); })
+                .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Create failed'; toastr.error(msg); });
           }}
         ]
       });
     },
     editTag: function(id){
-      const t = window.MockData.tags.find(x=>x.id===id); if(!t) return;
-      Modal.open({
-        title: 'Edit Tag',
-        body: `<div class="form-floating"><input id="tName" class="form-control" value="${t.name.replace(/"/g,'&quot;')}" placeholder="tag"><label for="tName">Tag</label></div>`,
-        buttons: [
-          { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
-          { label: 'Save', class: 'btn btn-brand', onClick: function(){
-              t.name = document.getElementById('tName').value.trim();
-              document.querySelector('#app-modal .btn-close').click();
-              window.Router.render();
-          }}
-        ]
-      });
+      TagsService.getById(id)
+        .done(function(t){
+          if (!t) { toastr.error('Tag not found'); return; }
+          var safeName = String(t.name||'').replace(/"/g,'&quot;');
+          Modal.open({
+            title: 'Edit Tag',
+            body: `<div class="form-floating"><input id="tName" class="form-control" value="${safeName}" placeholder="tag"><label for="tName">Tag</label></div>`,
+            buttons: [
+              { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
+              { label: 'Save', class: 'btn btn-brand', onClick: function(){
+                  var name = (document.getElementById('tName')||{}).value || '';
+                  if (!name.trim()) { toastr.warning('Tag is required'); return; }
+                  TagsService.update(id, { name: name.trim() })
+                    .done(function(){ toastr.success('Tag updated'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); })
+                    .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Update failed'; toastr.error(msg); });
+              }}
+            ]
+          });
+        })
+        .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Load failed'; toastr.error(msg); });
     },
     deleteTag: function(id){
       Modal.open({
@@ -163,63 +190,128 @@
         buttons: [
           { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
           { label: 'Delete', class: 'btn btn-outline-danger', onClick: function(){
-              const i = window.MockData.tags.findIndex(x=>x.id===id);
-              if(i>=0) window.MockData.tags.splice(i,1);
-              document.querySelector('#app-modal .btn-close').click();
-              window.Router.render();
+              TagsService.remove(id)
+                .done(function(){ toastr.success('Tag deleted'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); })
+                .fail(function(xhr){
+                  var raw = (xhr && xhr.responseJSON && (xhr.responseJSON.message || xhr.responseJSON.error)) || (xhr && xhr.responseText) || '';
+                  var s = String(raw || '');
+                  var msg = 'Delete failed';
+                  if (/foreign key/i.test(s) || /Integrity constraint violation/i.test(s) || /\b1451\b/.test(s)) {
+                    msg = 'Cannot delete this tag because it is used by posts. Remove it from posts first.';
+                  } else if (s) {
+                    msg = s;
+                  }
+                  toastr.error(msg);
+                });
           }}
         ]
       });
     },
     changeUserRole: function(id){
-      const u = window.MockData.users.find(x=>x.id===id); if(!u) return;
-      const body = `<div class=\"form-floating\"><select id=\"uRole\" class=\"form-select\">${['admin','user','disabled'].map(r=>`<option value="${r}" ${u.role===r?'selected':''}>${r}</option>`).join('')}</select><label for=\"uRole\">Role</label></div>`;
-      Modal.open({
-        title: 'Change Role',
-        body,
-        buttons: [
-          { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
-          { label: 'Save', class: 'btn btn-brand', onClick: function(){
-              u.role = document.getElementById('uRole').value;
-              document.querySelector('#app-modal .btn-close').click();
-              window.Router.render();
-          }}
-        ]
-      });
+      UsersService.getById(id)
+        .done(function(u){
+          if (!u) { toastr.error('User not found'); return; }
+          const body = `<div class=\"form-floating\"><select id=\"uRole\" class=\"form-select\">${['admin','user'].map(r=>`<option value=\"${r}\" ${u.role===r?'selected':''}>${r}</option>`).join('')}</select><label for=\"uRole\">Role</label></div>`;
+
+          Modal.open({
+            title: 'Change Role',
+            body,
+            buttons: [
+              { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
+              { label: 'Save', class: 'btn btn-brand', onClick: function(){
+                  var role = document.getElementById('uRole').value;
+                  UsersService.update(id, { role: role })
+                    .done(function(){ toastr.success('Role updated'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); })
+                    .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Update failed'; toastr.error(msg); });
+              }}
+            ]
+          });
+        })
+        .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Load failed'; toastr.error(msg); });
     },
-    disableUser: function(id){
-      const u = window.MockData.users.find(x=>x.id===id); if(!u) return;
-      Modal.open({
-        title: 'Disable User',
-        body: `Disable ${u.name}?`,
-        buttons: [
-          { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
-          { label: 'Disable', class: 'btn btn-outline-danger', onClick: function(){
-              u.role = 'disabled';
-              document.querySelector('#app-modal .btn-close').click();
-              window.Router.render();
-          }}
-        ]
-      });
+
+    deleteUser: function(id){
+      UsersService.getById(id)
+        .done(function(u){
+          if (!u) { toastr.error('User not found'); return; }
+          Modal.open({
+            title: 'Delete User',
+            body: `Are you sure you want to delete ${u.name || 'this user'}?`,
+            buttons: [
+              { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
+              { label: 'Delete', class: 'btn btn-outline-danger', onClick: function(){
+                  UsersService.remove(id)
+                    .done(function(){ toastr.success('User deleted'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); })
+                    .fail(function(xhr){
+                      var raw = (xhr && xhr.responseJSON && (xhr.responseJSON.message || xhr.responseJSON.error)) || (xhr && xhr.responseText) || '';
+                      var s = String(raw || '');
+                      var msg = 'Delete failed';
+                      if (/foreign key/i.test(s) || /Integrity constraint violation/i.test(s) || /\b1451\b/.test(s)) {
+                        msg = 'Cannot delete this user because it is referenced by other records.';
+                      } else if (s) { msg = s; }
+                      toastr.error(msg);
+                    });
+              }}
+            ]
+          });
+        })
+        .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Load failed'; toastr.error(msg); });
     },
+
     newUser: function(){
       const body = `
         <div class="form-floating mb-2"><input id="uName" class="form-control" placeholder="Full name"><label for="uName">Full name</label></div>
         <div class="form-floating mb-2"><input id="uEmail" class="form-control" placeholder="you@example.com"><label for="uEmail">Email</label></div>
+        <div class="form-floating mb-2"><input id="uPassword" type="password" class="form-control" placeholder="Password"><label for="uPassword">Password</label></div>
         <div class="form-floating mb-2"><select id="uRoleNew" class="form-select"><option value="user">user</option><option value="admin">admin</option></select><label for="uRoleNew">Role</label></div>`;
       Modal.open({
-        title: 'Invite User',
+        title: 'New User',
         body,
         buttons: [
           { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
-          { label: 'Invite', class: 'btn btn-brand', onClick: function(){
-              window.MockData.users.push({ id: nextId(window.MockData.users), name: document.getElementById('uName').value.trim(), email: document.getElementById('uEmail').value.trim(), role: document.getElementById('uRoleNew').value, created_at: new Date().toISOString() });
-              document.querySelector('#app-modal .btn-close').click();
-              window.Router.render();
+          { label: 'Add', class: 'btn btn-brand', onClick: function(){
+              var name = (document.getElementById('uName')||{}).value || '';
+              var email = (document.getElementById('uEmail')||{}).value || '';
+              var password = (document.getElementById('uPassword')||{}).value || '';
+              var role = (document.getElementById('uRoleNew')||{}).value || 'user';
+              if (!name.trim() || !email.trim() || !password) { toastr.warning('Name, email and password are required'); return; }
+              // Create via auth/register so backend hashes the password
+              $.ajax({
+                url: window.Constants.PROJECT_BASE_URL + 'auth/register',
+                type: 'POST',
+                data: JSON.stringify({ name: name.trim(), email: email.trim(), password: password, role: window.Constants.USER_ROLE }),
+                contentType: 'application/json',
+                dataType: 'json'
+              }).done(function(){
+                // If admin selected, upgrade role after creation
+                if (role === 'admin') {
+                  RestClient.get('users/by-email?email=' + encodeURIComponent(email.trim()), function(u){
+                    if (u && u.id) {
+                      UsersService.update(u.id, { role: 'admin' })
+                        .always(function(){ toastr.success('User created'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); });
+                    } else {
+                      toastr.success('User created'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard();
+                    }
+                  }, function(){
+                    toastr.success('User created'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard();
+                  });
+                } else {
+                  toastr.success('User created'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard();
+                }
+              }).fail(function(xhr){
+                var raw = (xhr && xhr.responseJSON && (xhr.responseJSON.message || xhr.responseJSON.error)) || (xhr && xhr.responseText) || '';
+                var s = String(raw || '');
+                var msg = 'Create failed';
+                if (/duplicate/i.test(s) || /unique/i.test(s) || /\b1062\b/.test(s) || /already in use/i.test(s)) { msg = 'A user with this email already exists.'; }
+                else if (/required/i.test(s) && /password/i.test(s)) { msg = 'Password is required.'; }
+                else if (s) { msg = s; }
+                toastr.error(msg);
+              });
           }}
         ]
       });
     },
+
     approveComment: function(id){
       const c = window.MockData.comments.find(x=>x.id===id); if(!c) return;
       c.status = 'visible'; window.Router.render();
@@ -249,12 +341,8 @@
         <div class="row align-items-center g-4">
           <div class="col-lg-7">
             <div class="kicker">Welcome</div>
-            <h1 class="title mb-2">Stories, guides, and insights for curious minds</h1>
+            <h1 class="h3 mb-2">Stories, guides, and insights for curious minds</h1>
             <p class="subtitle mb-3">This is more than a blog, it's a conversation. Engage with a diverse community and broaden your perspective.</p>
-            <div class="d-flex gap-2">
-              <a href="#/post/1" class="btn btn-brand">Read a featured post</a>
-              <a href="#/login" class="btn btn-outline-light">Sign in</a>
-            </div>
           </div>
           <div class="col-lg-5 d-none d-lg-block">
             <div class="glass p-3">
@@ -264,30 +352,24 @@
         </div>
       </section>`;
 
-    const cards = posts.map(p => {
-      const tags = tagsForPost(p.id).map(t => `<span class="chip me-1"><span class="dot"></span>#${t.name}</span>`).join('');
-      const cat = category(p.category_id)?.name || 'General';
-      const catSlug = slugify(cat);
-      const imgPath = `./assets/categories/${catSlug}-card.jpg`;
+    if (!window.Auth || !window.Auth.isLoggedIn()) {
       return `
-        <div class="col-md-6 col-lg-4">
-          <div class="card h-100 shadow-hover">
-            <img class="card-img-top" src="${imgPath}" alt="${p.title}" onerror="this.style.display='none'">
-            <div class="card-body d-flex flex-column">
-              <div class="small meta mb-2"><i class="bi bi-folder2-open me-1"></i>${cat} • <i class="bi bi-clock-history ms-2 me-1"></i>${formatDate(p.created_at)}</div>
-              <h2 class="h5 card-title">${p.title}</h2>
-              <p class="card-text flex-grow-1">${p.content.substring(0, 120)}...</p>
-              <div class="mb-3">${tags}</div>
-              <a class="btn btn-brand mt-auto" href="#/post/${p.id}">Read more</a>
-            </div>
+        ${hero}
+        <div class="glass p-4">
+          <div class="h5 mb-2">Explore the platform</div>
+          <div class="meta">Please login or register to view posts and interact with content.</div>
+          <div class="mt-3 d-flex gap-2">
+            <a class="btn btn-brand" href="#/login">Login</a>
+            <a class="btn btn-outline-light" href="#/register">Register</a>
           </div>
-        </div>`;
-    }).join('');
+        </div>
+      `;
+    }
 
     return `
       ${hero}
       <h2 class="h5 mb-3">Latest Posts</h2>
-      <div class="row g-3">${cards}</div>
+      <div class="row g-3"><div class="meta">Loading posts…</div></div>
     `;
   }
 
@@ -351,7 +433,7 @@
               <input type="password" class="form-control" id="loginPassword" placeholder="Password">
               <label for="loginPassword">Password</label>
             </div>
-            <button type="button" class="btn btn-brand w-100" onclick="alert('To be implemented')">
+            <button type="button" class="btn btn-brand w-100" id="btnLogin">
               <i class="bi bi-box-arrow-in-right me-2"></i>Login
             </button>
           </form>
@@ -384,7 +466,7 @@
               <input type="password" class="form-control" id="regPassword" placeholder="Password">
               <label for="regPassword">Password</label>
             </div>
-            <button type="button" class="btn btn-brand w-100" onclick="alert('To be implemented')">
+            <button type="button" class="btn btn-brand w-100" id="btnRegister">
               <i class="bi bi-person-plus-fill me-2"></i>Create Account
             </button>
           </form>
@@ -414,37 +496,10 @@
       </tr>`;
     }).join('');
 
-    const rowsCategories = categories.map(c => `<tr>
-      <td>${c.id}</td>
-      <td>${c.name}</td>
-      <td>${formatDate(c.created_at)}</td>
-      <td class="text-end">
-        <button class="btn btn-sm btn-outline-light me-2" onclick="ViewsActions.editCategory(${c.id})">Edit</button>
-        <button class="btn btn-sm btn-outline-danger" onclick="ViewsActions.deleteCategory(${c.id})">Delete</button>
-      </td>
-    </tr>`).join('');
+    const rowsCategories = '<tr><td colspan="4" class="text-center meta">Loading…</td></tr>';
+    const rowsTags = '<tr><td colspan="4" class="text-center meta">Loading…</td></tr>';
 
-    const rowsTags = tags.map(t => `<tr>
-      <td>${t.id}</td>
-      <td>#${t.name}</td>
-      <td>${formatDate(t.created_at)}</td>
-      <td class="text-end">
-        <button class="btn btn-sm btn-outline-light me-2" onclick="ViewsActions.editTag(${t.id})">Edit</button>
-        <button class="btn btn-sm btn-outline-danger" onclick="ViewsActions.deleteTag(${t.id})">Delete</button>
-      </td>
-    </tr>`).join('');
-
-    const rowsUsers = users.map(u => `<tr>
-      <td>${u.id}</td>
-      <td>${u.name}</td>
-      <td>${u.email}</td>
-      <td><span class="badge bg-secondary text-uppercase">${u.role}</span></td>
-      <td>${formatDate(u.created_at)}</td>
-      <td class="text-end">
-        <button class="btn btn-sm btn-outline-light me-2" onclick="ViewsActions.changeUserRole(${u.id})">Change role</button>
-        <button class="btn btn-sm btn-outline-danger" onclick="ViewsActions.disableUser(${u.id})">Disable</button>
-      </td>
-    </tr>`).join('');
+    const rowsUsers = '<tr><td colspan="6" class="text-center meta">Loading…</td></tr>';
 
     const rowsComments = comments.map(c => {
       const p = posts.find(x => x.id === c.post_id);
@@ -505,7 +560,7 @@
             <div class="table-responsive">
               <table class="table table-dark table-hover align-middle m-0">
                 <thead><tr><th>ID</th><th>Name</th><th>Created</th><th class="text-end">Actions</th></tr></thead>
-                <tbody>${rowsCategories || '<tr><td colspan="4" class="text-center meta">No categories.</td></tr>'}</tbody>
+                <tbody id="tbl-categories-body">${rowsCategories}</tbody>
               </table>
             </div>
           </div>
@@ -517,19 +572,19 @@
             <div class="table-responsive">
               <table class="table table-dark table-hover align-middle m-0">
                 <thead><tr><th>ID</th><th>Tag</th><th>Created</th><th class="text-end">Actions</th></tr></thead>
-                <tbody>${rowsTags || '<tr><td colspan="4" class="text-center meta">No tags.</td></tr>'}</tbody>
+                <tbody id="tbl-tags-body">${rowsTags}</tbody>
               </table>
             </div>
           </div>
         </div>
 
         <div class="tab-pane fade" id="tab-users" role="tabpanel">
-          <div class="d-flex justify-content-end mb-2"><button class="btn btn-brand" onclick="ViewsActions.newUser()">Invite User</button></div>
+          <div class="d-flex justify-content-end mb-2"><button class="btn btn-brand" onclick="ViewsActions.newUser()">New User</button></div>
           <div class="card">
             <div class="table-responsive">
               <table class="table table-dark table-hover align-middle m-0">
                 <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Created</th><th class="text-end">Actions</th></tr></thead>
-                <tbody>${rowsUsers || '<tr><td colspan="6" class="text-center meta">No users.</td></tr>'}</tbody>
+                <tbody id="tbl-users-body">${rowsUsers}</tbody>
               </table>
             </div>
           </div>
@@ -540,7 +595,7 @@
             <div class="table-responsive">
               <table class="table table-dark table-hover align-middle m-0">
                 <thead><tr><th>ID</th><th>Post</th><th>User</th><th>Content</th><th>Created</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
-                <tbody>${rowsComments || '<tr><td colspan="6" class="text-center meta">No comments.</td></tr>'}</tbody>
+                <tbody>${rowsComments || '<tr><td colspan="7" class="text-center meta">No comments.</td></tr>'}</tbody>
               </table>
             </div>
           </div>
@@ -609,4 +664,185 @@
   }
 
   window.Views = { home, postDetail, login, register, dashboard, profile, notFound };
+
+  window.ViewsHydrate = window.ViewsHydrate || {};
+  window.ViewsHydrate.home = function(){
+    if (!window.PostsService) return;
+    if (!window.Auth || !window.Auth.isLoggedIn()) return;
+    PostsService.list(12, 0)
+      .done(function(list){
+        try {
+          const { formatDate } = window.Utils;
+          const cards = (Array.isArray(list) ? list : []).map(function(p){
+            const title = p.title || 'Untitled';
+            const content = (p.content || '').substring(0, 120);
+            const catName = p.category_name || 'General';
+            const catSlug = window.Utils.slugify(catName);
+            const imgPath = `./assets/categories/${catSlug}-card.jpg`;
+            return `
+              <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-hover">
+                  <img class="card-img-top" src="${imgPath}" alt="${title}" onerror="this.style.display='none'">
+                  <div class="card-body d-flex flex-column">
+                    <div class="small meta mb-2">${catName} • ${formatDate(p.created_at || new Date().toISOString())}</div>
+                    <h2 class="h5 card-title">${title}</h2>
+                    <p class="card-text flex-grow-1">${content}...</p>
+                    <a class="btn btn-brand mt-auto" href="#/post/${p.id}">Read more</a>
+                  </div>
+                </div>
+              </div>`;
+          }).join('');
+          const root = document.getElementById('app-root');
+          if (!root) return;
+          const grid = root.querySelector('.row.g-3');
+          if (grid) grid.innerHTML = cards; else root.innerHTML = `<h2 class="h5 mb-3">Latest Posts</h2><div class="row g-3">${cards}</div>`;
+        } catch(e){ console.error(e); }
+      })
+      .fail(function(){});
+  };
+
+  window.ViewsHydrate.dashboard = function(){
+    var catBody = document.getElementById('tbl-categories-body');
+    if (catBody && window.CategoriesService) {
+      catBody.innerHTML = '<tr><td colspan="4" class="text-center meta">Loading…</td></tr>';
+      CategoriesService.list(200, 0)
+        .done(function(list){
+          if (!Array.isArray(list) || list.length === 0) {
+            catBody.innerHTML = '<tr><td colspan="4" class="text-center meta">No categories.</td></tr>';
+            return;
+          }
+          var rows = list.map(function(c){
+            var created = window.Utils.formatDate(c.created_at || new Date().toISOString());
+            return '<tr>'+
+              '<td>'+c.id+'</td>'+
+              '<td>'+c.name+'</td>'+
+              '<td>'+created+'</td>'+
+              '<td class="text-end">'+
+                '<button class="btn btn-sm btn-outline-light me-2" onclick="ViewsActions.editCategory('+c.id+')">Edit</button>'+
+                '<button class="btn btn-sm btn-outline-danger" onclick="ViewsActions.deleteCategory('+c.id+')">Delete</button>'+
+              '</td>'+
+            '</tr>';
+          }).join('');
+          catBody.innerHTML = rows;
+        })
+        .fail(function(){
+          catBody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Failed to load categories</td></tr>';
+        });
+    }
+
+    var tagBody = document.getElementById('tbl-tags-body');
+    if (tagBody && window.TagsService) {
+      tagBody.innerHTML = '<tr><td colspan="4" class="text-center meta">Loading…</td></tr>';
+      TagsService.list(200, 0)
+        .done(function(list){
+          if (!Array.isArray(list) || list.length === 0) {
+            tagBody.innerHTML = '<tr><td colspan="4" class="text-center meta">No tags.</td></tr>';
+            return;
+          }
+          var rows = list.map(function(t){
+            var created = window.Utils.formatDate(t.created_at || new Date().toISOString());
+            return '<tr>'+
+              '<td>'+t.id+'</td>'+
+              '<td>#'+t.name+'</td>'+
+              '<td>'+created+'</td>'+
+              '<td class="text-end">'+
+                '<button class="btn btn-sm btn-outline-light me-2" onclick="ViewsActions.editTag('+t.id+')">Edit</button>'+
+                '<button class="btn btn-sm btn-outline-danger" onclick="ViewsActions.deleteTag('+t.id+')">Delete</button>'+
+              '</td>'+
+            '</tr>';
+          }).join('');
+          tagBody.innerHTML = rows;
+        })
+        .fail(function(){
+          tagBody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Failed to load tags</td></tr>';
+        });
+    }
+
+    var userBody = document.getElementById('tbl-users-body');
+    if (userBody && window.UsersService) {
+      userBody.innerHTML = '<tr><td colspan="6" class="text-center meta">Loading…</td></tr>';
+      UsersService.list(200, 0)
+        .done(function(list){
+          if (!Array.isArray(list) || list.length === 0) {
+            userBody.innerHTML = '<tr><td colspan="6" class="text-center meta">No users.</td></tr>';
+            return;
+          }
+          var me = (window.Auth && window.Auth.getUser && window.Auth.getUser()) || null;
+          var myId = me && me.id;
+          var rows = list.map(function(u){
+            var created = window.Utils.formatDate(u.created_at || new Date().toISOString());
+            var role = (u.role || 'user');
+            var isMe = String(u.id) === String(myId || '');
+            var actions = isMe
+              ? ''
+              : '<button class="btn btn-sm btn-outline-light me-2" onclick="ViewsActions.changeUserRole('+u.id+')">Change role<\/button>'+
+                '<button class="btn btn-sm btn-outline-danger" onclick="ViewsActions.deleteUser('+u.id+')">Delete<\/button>';
+            return '<tr>'+
+              '<td>'+u.id+'</td>'+
+              '<td>'+(u.name||'')+'</td>'+
+              '<td>'+(u.email||'')+'</td>'+
+              '<td><span class="badge bg-secondary text-uppercase">'+role+'</span></td>'+
+              '<td>'+created+'</td>'+
+              '<td class="text-end">'+ actions +'</td>'+
+            '</tr>';
+          }).join('');
+          userBody.innerHTML = rows;
+        })
+        .fail(function(){
+          userBody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Failed to load users</td></tr>';
+        });
+    }
+  };
+
+  window.ViewsHydrate.postDetail = function(id){
+    if (!window.PostsService || !id) return;
+    $.when(
+      PostsService.getById(id),
+      PostsService.getTags(id),
+      PostsService.getComments(id, 50, 0)
+    ).done(function(post, tags, comms){
+      try {
+        const p = Array.isArray(post) ? post[0] : post;
+        const t = Array.isArray(tags) ? tags[0] : tags;
+        const c = Array.isArray(comms) ? comms[0] : comms;
+        const title = (p && p.title) || 'Untitled';
+        const authorName = (p && (p.author_name || (p.author && p.author.name))) || 'Unknown';
+        const catName = (p && (p.category_name)) || 'General';
+        const catSlug = window.Utils.slugify(catName);
+        const banner = `./assets/categories/${catSlug}-banner.jpg`;
+        const tagHtml = (Array.isArray(t) ? t : []).map(function(x){ return `<span class="chip me-1"><span class="dot"></span>#${x.name}</span>`; }).join('');
+        const commentsHtml = (Array.isArray(c) ? c : []).map(function(cm){
+          const u = cm.user_name || `User ${cm.user_id || ''}`;
+          return `<div class="comment p-3 mb-2">
+            <div class="small meta mb-1"><i class="bi bi-person-circle me-1"></i>${u} • <i class="bi bi-clock-history ms-2 me-1"></i>${window.Utils.formatDate(cm.created_at || new Date().toISOString())}</div>
+            <div>${cm.content || ''}</div>
+          </div>`;}).join('');
+        const html = `
+          <section class="mb-4">
+            <div class="glass overflow-hidden">
+              <img src="${banner}" alt="${title}" class="w-100" style="max-height:300px;object-fit:cover" onerror="this.style.display='none'">
+              <div class="p-4">
+                <div class="small meta mb-2">By ${authorName} • ${window.Utils.formatDate(p && p.created_at || new Date().toISOString())}</div>
+                <h1 class="h3 mb-2">${title}</h1>
+                <div class="mb-3">${tagHtml}</div>
+                <div>${(p && p.content) || ''}</div>
+              </div>
+            </div>
+          </section>
+          <section>
+            <h3 class="h5">Comments</h3>
+            ${commentsHtml || '<div class="meta">No comments yet.</div>'}
+            <div class="mt-3 glass p-3">
+              <div class="form-floating mb-2">
+                <textarea class="form-control" placeholder="Leave a comment" id="commentText" style="height: 100px"></textarea>
+                <label for="commentText">Leave a comment</label>
+              </div>
+              <button class="btn btn-brand" onclick="toastr.info('Login required to comment')">Submit</button>
+            </div>
+          </section>`;
+        const root = document.getElementById('app-root');
+        if (root) root.innerHTML = html;
+      } catch(e){ console.error(e); }
+    }).fail(function(){});
+  };
 })();
