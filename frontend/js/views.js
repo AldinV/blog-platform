@@ -14,75 +14,153 @@
 
   window.ViewsActions = {
     newPost: function () {
-      const cats = window.MockData.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-      const users = window.MockData.users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
-      const body = `
-        <div class="form-floating mb-2"><input id="fTitle" class="form-control" placeholder="Title"><label for="fTitle">Title</label></div>
-        <div class="form-floating mb-2"><select id="fCategory" class="form-select">${cats}</select><label for="fCategory">Category</label></div>
-        <div class="form-floating mb-2"><select id="fAuthor" class="form-select">${users}</select><label for="fAuthor">Author</label></div>
-        <div class="form-floating"><textarea id="fContent" class="form-control" style="height:140px" placeholder="Content"></textarea><label for="fContent">Content</label></div>`;
-      Modal.open({
-        title: 'New Post',
-        body,
-        buttons: [
-          { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
-          { label: 'Create', class: 'btn btn-brand', onClick: function(){
-              const p = {
-                id: nextId(window.MockData.posts),
-                author_id: Number(document.getElementById('fAuthor').value),
-                title: document.getElementById('fTitle').value.trim(),
-                content: document.getElementById('fContent').value.trim(),
-                category_id: Number(document.getElementById('fCategory').value),
-                created_at: new Date().toISOString()
-              };
-              window.MockData.posts.push(p);
-              document.querySelector('#app-modal .btn-close').click();
-              window.Router.render();
-          }}
-        ]
-      });
+      var me = window.Auth && window.Auth.getUser && window.Auth.getUser();
+      if (!me || !me.id) { toastr.error('Login required'); return; }
+      $.when(
+        window.CategoriesService ? CategoriesService.list(500,0) : $.Deferred().resolve([]),
+        window.TagsService ? TagsService.list(500,0) : $.Deferred().resolve([])
+      ).done(function(catList, tagList){
+        var cats = Array.isArray(catList) ? catList : [];
+        var tags = Array.isArray(tagList) ? tagList : [];
+        var body = `
+          <div class="form-floating mb-2"><input id="fTitle" class="form-control" placeholder="Title"><label for="fTitle">Title</label></div>
+          <div class="mb-2">
+            <label class="form-label small">Category</label>
+            <select id="fCategory" class="form-select">
+              ${cats.map(function(c){ return `<option value="${c.id}">${c.name}</option>`; }).join('')}
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Tags</label>
+            <input id="fTagSearch" class="form-control form-control-sm mb-1" placeholder="Search tags">
+            <div id="fTagList" class="rounded p-2" style="max-height:140px;overflow:auto">
+              ${tags.map(function(t){ return `<button type="button" class="btn btn-sm btn-outline-light me-1 mb-1" data-id="${t.id}">#${t.name}</button>`; }).join('')}
+            </div>
+            <div id="fSelectedTags" class="mt-2"></div>
+          </div>
+          <div class="form-floating"><textarea id="fContent" class="form-control" style="height:140px" placeholder="Content"></textarea><label for="fContent">Content</label></div>`;
+        Modal.open({
+          title: 'New Post',
+          body: body,
+          buttons: [
+            { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
+            { label: 'Create', class: 'btn btn-brand', onClick: function(){
+                var title = (document.getElementById('fTitle')||{}).value || '';
+                var content = (document.getElementById('fContent')||{}).value || '';
+                var category_id = Number((document.getElementById('fCategory')||{}).value);
+                if (!title.trim() || !content.trim() || !category_id) { toastr.warning('Title, content and category are required'); return; }
+                var selected = Array.prototype.map.call((document.querySelectorAll('#fSelectedTags .chip[data-id]')||[]), function(el){ return Number(el.getAttribute('data-id')); });
+                PostsService.create({ title: title.trim(), content: content.trim(), category_id: category_id, author_id: me.id })
+                  .done(function(created){
+                    var pid = created && (created.id || created.post_id) || null;
+                    if (pid && selected.length && PostsService.setTags) {
+                      PostsService.setTags(pid, selected).always(function(){ toastr.success('Post created'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); });
+                    } else {
+                      toastr.success('Post created'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard();
+                    }
+                  })
+                  .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Create failed'; toastr.error(msg); });
+            }}
+          ]
+        });
+        var selectedWrap = document.getElementById('fSelectedTags');
+        var tagSearch = document.getElementById('fTagSearch');
+        var tagListEl = document.getElementById('fTagList');
+        function addChip(id, name){
+          if (!selectedWrap.querySelector('[data-id="'+id+'"]')) {
+            var chip = document.createElement('span');
+            chip.className = 'chip me-1 mb-1';
+            chip.setAttribute('data-id', id);
+            chip.innerHTML = '<span class="dot"></span>#'+name+' <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1">&times;</button>';
+            chip.querySelector('button').onclick = function(){ chip.remove(); };
+            selectedWrap.appendChild(chip);
+          }
+        }
+        if (tagListEl) {
+          tagListEl.onclick = function(e){ var btn=e.target.closest('button[data-id]'); if(!btn) return; addChip(btn.getAttribute('data-id'), btn.textContent.replace('#','').trim()); };
+        }
+        if (tagSearch && tagListEl) {
+          tagSearch.addEventListener('input', function(){ var q=this.value.toLowerCase(); Array.prototype.forEach.call(tagListEl.querySelectorAll('button[data-id]'), function(b){ b.classList.toggle('d-none', q && b.textContent.toLowerCase().indexOf(q) === -1); }); });
+        }
+      }).fail(function(){ toastr.error('Failed to load categories/tags'); });
     },
-    editPost: function (id) {
-      const p = window.MockData.posts.find(x => x.id === id);
-      if (!p) return;
-      const cats = window.MockData.categories.map(c => `<option value="${c.id}" ${c.id===p.category_id?'selected':''}>${c.name}</option>`).join('');
-      const users = window.MockData.users.map(u => `<option value="${u.id}" ${u.id===p.author_id?'selected':''}>${u.name}</option>`).join('');
-      const body = `
-        <div class="form-floating mb-2"><input id="fTitle" class="form-control" value="${p.title.replace(/"/g,'&quot;')}" placeholder="Title"><label for="fTitle">Title</label></div>
-        <div class="form-floating mb-2"><select id="fCategory" class="form-select">${cats}</select><label for="fCategory">Category</label></div>
-        <div class="form-floating mb-2"><select id="fAuthor" class="form-select">${users}</select><label for="fAuthor">Author</label></div>
-        <div class="form-floating"><textarea id="fContent" class="form-control" style="height:140px" placeholder="Content">${p.content.replace(/</g,'&lt;')}</textarea><label for="fContent">Content</label></div>`;
-      Modal.open({
-        title: 'Edit Post',
-        body,
-        buttons: [
-          { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
-          { label: 'Save', class: 'btn btn-brand', onClick: function(){
-              p.author_id = Number(document.getElementById('fAuthor').value);
-              p.title = document.getElementById('fTitle').value.trim();
-              p.content = document.getElementById('fContent').value.trim();
-              p.category_id = Number(document.getElementById('fCategory').value);
-              document.querySelector('#app-modal .btn-close').click();
-              window.Router.render();
-          }}
-        ]
-      });
+
+    editPost: function(id){
+      $.when(
+        PostsService.getById(id),
+        PostsService.getTags(id),
+        window.CategoriesService ? CategoriesService.list(500,0) : $.Deferred().resolve([]),
+        window.TagsService ? TagsService.list(500,0) : $.Deferred().resolve([])
+      ).done(function(post, postTags, catList, tagList){
+        if (!post) { toastr.error('Post not found'); return; }
+        var cats = Array.isArray(catList) ? catList : [];
+        var tags = Array.isArray(tagList) ? tagList : [];
+        var selectedIds = (Array.isArray(postTags)?postTags:[]).map(function(t){ return Number(t.id); });
+        var body = `
+          <div class="form-floating mb-2"><input id="fTitle" class="form-control" value="${String(post.title||'').replace(/"/g,'&quot;')}" placeholder="Title"><label for="fTitle">Title</label></div>
+          <div class="mb-2">
+            <label class="form-label small">Category</label>
+            <select id="fCategory" class="form-select">
+              ${cats.map(function(c){ return `<option value="${c.id}" ${String(c.id)===String(post.category_id)?'selected':''}>${c.name}</option>`; }).join('')}
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Tags</label>
+            <input id="fTagSearch" class="form-control form-control-sm mb-1" placeholder="Search tags">
+            <div id="fTagList" class="rounded p-2" style="max-height:140px;overflow:auto">
+              ${tags.map(function(t){ return `<button type="button" class="btn btn-sm btn-outline-light me-1 mb-1" data-id="${t.id}">#${t.name}</button>`; }).join('')}
+            </div>
+            <div id="fSelectedTags" class="mt-2">${(Array.isArray(postTags)?postTags:[]).map(function(t){ return `<span class="chip me-1 mb-1" data-id="${t.id}"><span class="dot"></span>#${t.name} <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1">&times;</button></span>`; }).join('')}</div>
+          </div>
+          <div class="form-floating"><textarea id="fContent" class="form-control" style="height:140px" placeholder="Content">${String(post.content||'').replace(/</g,'&lt;')}</textarea><label for="fContent">Content</label></div>`;
+        Modal.open({
+          title: 'Edit Post',
+          body: body,
+          buttons: [
+            { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
+            { label: 'Save', class: 'btn btn-brand', onClick: function(){
+                var title = (document.getElementById('fTitle')||{}).value || '';
+                var content = (document.getElementById('fContent')||{}).value || '';
+                var category_id = Number((document.getElementById('fCategory')||{}).value);
+                if (!title.trim() || !content.trim() || !category_id) { toastr.warning('Title, content and category are required'); return; }
+                var selected = Array.prototype.map.call((document.querySelectorAll('#fSelectedTags .chip[data-id]')||[]), function(el){ return Number(el.getAttribute('data-id')); });
+                PostsService.update(id, { title: title.trim(), content: content.trim(), category_id: category_id })
+                  .done(function(){
+                    if (PostsService.setTags) {
+                      PostsService.setTags(id, selected).always(function(){ toastr.success('Post updated'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); });
+                    } else {
+                      toastr.success('Post updated'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard();
+                    }
+                  })
+                  .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Update failed'; toastr.error(msg); });
+            }}
+          ]
+        });
+        var selectedWrap = document.getElementById('fSelectedTags');
+        if (selectedWrap) Array.prototype.forEach.call(selectedWrap.querySelectorAll('button'), function(b){ b.onclick = function(){ b.closest('.chip').remove(); }; });
+        var tagSearch = document.getElementById('fTagSearch');
+        var tagListEl = document.getElementById('fTagList');
+        function addChip(id, name){ if (!selectedWrap.querySelector('[data-id="'+id+'"]')) { var chip=document.createElement('span'); chip.className='chip me-1 mb-1'; chip.setAttribute('data-id', id); chip.innerHTML = '<span class="dot"></span>#'+name+' <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1">&times;</button>'; chip.querySelector('button').onclick=function(){ chip.remove(); }; selectedWrap.appendChild(chip);} }
+        if (tagListEl) { tagListEl.onclick=function(e){ var btn=e.target.closest('button[data-id]'); if(!btn) return; addChip(btn.getAttribute('data-id'), btn.textContent.replace('#','').trim()); }; }
+        if (tagSearch && tagListEl) { tagSearch.addEventListener('input', function(){ var q=this.value.toLowerCase(); Array.prototype.forEach.call(tagListEl.querySelectorAll('button[data-id]'), function(b){ b.classList.toggle('d-none', q && b.textContent.toLowerCase().indexOf(q) === -1); }); }); }
+      }).fail(function(){ toastr.error('Failed to load post'); });
     },
-    deletePost: function (id) {
+
+    deletePost: function(id){
       Modal.open({
         title: 'Delete Post',
         body: 'Are you sure you want to delete this post?',
         buttons: [
           { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
           { label: 'Delete', class: 'btn btn-outline-danger', onClick: function(){
-              const i = window.MockData.posts.findIndex(x => x.id === id);
-              if (i>=0) window.MockData.posts.splice(i,1);
-              document.querySelector('#app-modal .btn-close').click();
-              window.Router.render();
+              PostsService.remove(id)
+                .done(function(){ toastr.success('Post deleted'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); })
+                .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Delete failed'; toastr.error(msg); });
           }}
         ]
       });
     },
+
     newCategory: function(){
       Modal.open({
         title: 'New Category',
@@ -275,7 +353,6 @@
               var password = (document.getElementById('uPassword')||{}).value || '';
               var role = (document.getElementById('uRoleNew')||{}).value || 'user';
               if (!name.trim() || !email.trim() || !password) { toastr.warning('Name, email and password are required'); return; }
-              // Create via auth/register so backend hashes the password
               $.ajax({
                 url: window.Constants.PROJECT_BASE_URL + 'auth/register',
                 type: 'POST',
@@ -283,7 +360,6 @@
                 contentType: 'application/json',
                 dataType: 'json'
               }).done(function(){
-                // If admin selected, upgrade role after creation
                 if (role === 'admin') {
                   RestClient.get('users/by-email?email=' + encodeURIComponent(email.trim()), function(u){
                     if (u && u.id) {
@@ -323,6 +399,27 @@
     deleteComment: function(id){
       const i = window.MockData.comments.findIndex(x=>x.id===id); if(i<0) return;
       window.MockData.comments.splice(i,1); window.Router.render();
+    },
+    setCommentStatus: function(id, nextStatus){
+      if (!window.CommentsService) { toastr.error('Service unavailable'); return; }
+      CommentsService.setStatus(id, nextStatus)
+        .done(function(){ toastr.success('Status updated'); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); })
+        .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Update failed'; toastr.error(msg); });
+    },
+    deleteComment: function(id){
+      if (!window.CommentsService) { toastr.error('Service unavailable'); return; }
+      Modal.open({
+        title: 'Delete Comment',
+        body: 'Are you sure you want to delete this comment?',
+        buttons: [
+          { label: 'Cancel', class: 'btn btn-secondary', attrs: { 'data-bs-dismiss': 'modal' } },
+          { label: 'Delete', class: 'btn btn-outline-danger', onClick: function(){
+              CommentsService.remove(id)
+                .done(function(){ toastr.success('Comment deleted'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); })
+                .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Delete failed'; toastr.error(msg); });
+          }}
+        ]
+      });
     }
   };
 
@@ -514,8 +611,7 @@
         <td>${formatDate(c.created_at)}</td>
         <td><span class="badge ${c.status === 'visible' ? 'bg-success' : 'bg-warning'} text-uppercase">${c.status}</span></td>
         <td class="text-end">
-          <button class="btn btn-sm btn-outline-light me-2" onclick="ViewsActions.approveComment(${c.id})">Approve</button>
-          <button class="btn btn-sm btn-outline-warning me-2" onclick="ViewsActions.hideComment(${c.id})">Hide</button>
+          <button class="btn btn-sm btn-outline-light me-2" onclick="ViewsActions.setCommentStatus(${c.id}, '${c.status === 'visible' ? 'hidden' : 'visible'}')">Toggle</button>
           <button class="btn btn-sm btn-outline-danger" onclick="ViewsActions.deleteComment(${c.id})">Delete</button>
         </td>
       </tr>`;
@@ -548,7 +644,7 @@
             <div class="table-responsive">
               <table class="table table-dark table-hover align-middle m-0">
                 <thead><tr><th>ID</th><th>Title</th><th>Category</th><th>Author</th><th>Created</th><th class="text-end">Actions</th></tr></thead>
-                <tbody>${rowsPosts || '<tr><td colspan="6" class="text-center meta">No posts.</td></tr>'}</tbody>
+                <tbody id="tbl-posts-body"><tr><td colspan="6" class="text-center meta">Loading…</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -595,62 +691,13 @@
             <div class="table-responsive">
               <table class="table table-dark table-hover align-middle m-0">
                 <thead><tr><th>ID</th><th>Post</th><th>User</th><th>Content</th><th>Created</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
-                <tbody>${rowsComments || '<tr><td colspan="7" class="text-center meta">No comments.</td></tr>'}</tbody>
+                <tbody id="tbl-comments-body"><tr><td colspan="7" class="text-center meta">Loading…</td></tr></tbody>
               </table>
             </div>
           </div>
         </div>
       </div>
     `);
-  }
-
-  function profile() {
-    return `
-      <div class="col-md-8 col-lg-6 col-xl-5 mx-auto">
-        <div class="glass p-4 p-md-5">
-          <div class="text-center mb-4">
-            <h2 class="h3">Your Profile</h2>
-            <p class="meta">Manage your account details.</p>
-          </div>
-          <form>
-            <div class="row g-3">
-              <div class="col-md-6">
-                <div class="form-floating mb-3 mb-md-0">
-                  <input type="text" class="form-control" id="pName" placeholder="Your name" value="Jane Doe">
-                  <label for="pName">Full name</label>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="form-floating">
-                  <input type="email" class="form-control" id="pEmail" placeholder="you@example.com" value="jane.doe@example.com">
-                  <label for="pEmail">Email</label>
-                </div>
-              </div>
-            </div>
-            <hr class="my-4">
-            <div class="row g-3">
-              <div class="col-md-6">
-                <div class="form-floating">
-                  <input type="password" class="form-control" id="pPassword" placeholder="New password">
-                  <label for="pPassword">New Password</label>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="form-floating">
-                  <input type="password" class="form-control" id="pConfirmPassword" placeholder="Confirm new password">
-                  <label for="pConfirmPassword">Confirm New Password</label>
-                </div>
-              </div>
-            </div>
-            <div class="mt-4">
-              <button type="button" class="btn btn-brand w-100" onclick="alert('To be implemented')">
-                <i class="bi bi-check-circle me-2"></i>Save Changes
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    `;
   }
 
   function notFound() {
@@ -663,7 +710,7 @@
     `;
   }
 
-  window.Views = { home, postDetail, login, register, dashboard, profile, notFound };
+  window.Views = { home, postDetail, login, register, dashboard, notFound };
 
   window.ViewsHydrate = window.ViewsHydrate || {};
   window.ViewsHydrate.home = function(){
@@ -685,6 +732,7 @@
                   <img class="card-img-top" src="${imgPath}" alt="${title}" onerror="this.style.display='none'">
                   <div class="card-body d-flex flex-column">
                     <div class="small meta mb-2">${catName} • ${formatDate(p.created_at || new Date().toISOString())}</div>
+                    <div class="mb-2" id="post-tags-${p.id}"><span class="meta">Loading tags…</span></div>
                     <h2 class="h5 card-title">${title}</h2>
                     <p class="card-text flex-grow-1">${content}...</p>
                     <a class="btn btn-brand mt-auto" href="#/post/${p.id}">Read more</a>
@@ -696,21 +744,66 @@
           if (!root) return;
           const grid = root.querySelector('.row.g-3');
           if (grid) grid.innerHTML = cards; else root.innerHTML = `<h2 class="h5 mb-3">Latest Posts</h2><div class="row g-3">${cards}</div>`;
+          var arr = Array.isArray(list) ? list.slice(0) : [];
+          var runId = Date.now();
+          window.__homeTagsRunId = runId;
+          (function next(i){
+            if (window.__homeTagsRunId !== runId) return;
+            if (i >= arr.length) return;
+            var p = arr[i];
+            var holder = document.getElementById('post-tags-' + p.id);
+            if (!holder || !window.PostsService || !PostsService.getTags) { return next(i+1); }
+            PostsService.getTags(p.id)
+              .done(function(tags){
+                if (window.__homeTagsRunId !== runId) return;
+                try {
+                  var html = (Array.isArray(tags) ? tags : []).map(function(t){ return `<span class="chip me-1 mb-1"><span class="dot"></span>#${t.name}</span>`; }).join('');
+                  holder.innerHTML = html || '<span class="meta">No tags</span>';
+                } catch(e) { holder.innerHTML = '<span class="meta">No tags</span>'; }
+              })
+              .fail(function(){ if (holder) holder.innerHTML = '<span class="meta">No tags</span>'; })
+              .always(function(){ setTimeout(function(){ next(i+1); }, 100); });
+          })(0);
         } catch(e){ console.error(e); }
       })
       .fail(function(){});
   };
 
   window.ViewsHydrate.dashboard = function(){
-    var catBody = document.getElementById('tbl-categories-body');
-    if (catBody && window.CategoriesService) {
+    function loadPosts(){
+      var postBody = document.getElementById('tbl-posts-body');
+      if (!(postBody && window.PostsService)) return;
+      postBody.innerHTML = '<tr><td colspan="6" class="text-center meta">Loading…</td></tr>';
+      PostsService.list(200, 0)
+        .done(function(list){
+          if (!Array.isArray(list) || list.length === 0) { postBody.innerHTML = '<tr><td colspan="6" class="text-center meta">No posts.</td></tr>'; return; }
+          var rows = list.map(function(p){
+            var created = window.Utils.formatDate(p.created_at || new Date().toISOString());
+            var cat = p.category_name || 'General';
+            var author = p.author_name || (p.author && p.author.name) || 'Unknown';
+            return '<tr>'+
+              '<td>'+p.id+'</td>'+
+              '<td>'+(p.title||'')+'</td>'+
+              '<td>'+cat+'</td>'+
+              '<td>'+author+'</td>'+
+              '<td>'+created+'</td>'+
+              '<td class="text-end">'+
+                '<button class="btn btn-sm btn-outline-light me-2" onclick="ViewsActions.editPost('+p.id+')">Edit</button>'+
+                '<button class="btn btn-sm btn-outline-danger" onclick="ViewsActions.deletePost('+p.id+')">Delete</button>'+
+              '</td>'+
+            '</tr>';
+          }).join('');
+          postBody.innerHTML = rows;
+        })
+        .fail(function(){ postBody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Failed to load posts</td></tr>'; });
+    }
+    function loadCategories(){
+      var catBody = document.getElementById('tbl-categories-body');
+      if (!(catBody && window.CategoriesService)) return;
       catBody.innerHTML = '<tr><td colspan="4" class="text-center meta">Loading…</td></tr>';
       CategoriesService.list(200, 0)
         .done(function(list){
-          if (!Array.isArray(list) || list.length === 0) {
-            catBody.innerHTML = '<tr><td colspan="4" class="text-center meta">No categories.</td></tr>';
-            return;
-          }
+          if (!Array.isArray(list) || list.length === 0) { catBody.innerHTML = '<tr><td colspan="4" class="text-center meta">No categories.</td></tr>'; return; }
           var rows = list.map(function(c){
             var created = window.Utils.formatDate(c.created_at || new Date().toISOString());
             return '<tr>'+
@@ -725,20 +818,15 @@
           }).join('');
           catBody.innerHTML = rows;
         })
-        .fail(function(){
-          catBody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Failed to load categories</td></tr>';
-        });
+        .fail(function(){ catBody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Failed to load categories</td></tr>'; });
     }
-
-    var tagBody = document.getElementById('tbl-tags-body');
-    if (tagBody && window.TagsService) {
+    function loadTags(){
+      var tagBody = document.getElementById('tbl-tags-body');
+      if (!(tagBody && window.TagsService)) return;
       tagBody.innerHTML = '<tr><td colspan="4" class="text-center meta">Loading…</td></tr>';
       TagsService.list(200, 0)
         .done(function(list){
-          if (!Array.isArray(list) || list.length === 0) {
-            tagBody.innerHTML = '<tr><td colspan="4" class="text-center meta">No tags.</td></tr>';
-            return;
-          }
+          if (!Array.isArray(list) || list.length === 0) { tagBody.innerHTML = '<tr><td colspan="4" class="text-center meta">No tags.</td></tr>'; return; }
           var rows = list.map(function(t){
             var created = window.Utils.formatDate(t.created_at || new Date().toISOString());
             return '<tr>'+
@@ -753,30 +841,23 @@
           }).join('');
           tagBody.innerHTML = rows;
         })
-        .fail(function(){
-          tagBody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Failed to load tags</td></tr>';
-        });
+        .fail(function(){ tagBody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Failed to load tags</td></tr>'; });
     }
-
-    var userBody = document.getElementById('tbl-users-body');
-    if (userBody && window.UsersService) {
+    function loadUsers(){
+      var userBody = document.getElementById('tbl-users-body');
+      if (!(userBody && window.UsersService)) return;
       userBody.innerHTML = '<tr><td colspan="6" class="text-center meta">Loading…</td></tr>';
       UsersService.list(200, 0)
         .done(function(list){
-          if (!Array.isArray(list) || list.length === 0) {
-            userBody.innerHTML = '<tr><td colspan="6" class="text-center meta">No users.</td></tr>';
-            return;
-          }
+          if (!Array.isArray(list) || list.length === 0) { userBody.innerHTML = '<tr><td colspan="6" class="text-center meta">No users.</td></tr>'; return; }
           var me = (window.Auth && window.Auth.getUser && window.Auth.getUser()) || null;
           var myId = me && me.id;
           var rows = list.map(function(u){
             var created = window.Utils.formatDate(u.created_at || new Date().toISOString());
             var role = (u.role || 'user');
             var isMe = String(u.id) === String(myId || '');
-            var actions = isMe
-              ? ''
-              : '<button class="btn btn-sm btn-outline-light me-2" onclick="ViewsActions.changeUserRole('+u.id+')">Change role<\/button>'+
-                '<button class="btn btn-sm btn-outline-danger" onclick="ViewsActions.deleteUser('+u.id+')">Delete<\/button>';
+            var actions = isMe ? '' : '<button class="btn btn-sm btn-outline-light me-2" onclick="ViewsActions.changeUserRole('+u.id+')">Change role<\/button>'+
+                                 '<button class="btn btn-sm btn-outline-danger" onclick="ViewsActions.deleteUser('+u.id+')">Delete<\/button>';
             return '<tr>'+
               '<td>'+u.id+'</td>'+
               '<td>'+(u.name||'')+'</td>'+
@@ -788,10 +869,56 @@
           }).join('');
           userBody.innerHTML = rows;
         })
-        .fail(function(){
-          userBody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Failed to load users</td></tr>';
-        });
+        .fail(function(){ userBody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Failed to load users</td></tr>'; });
     }
+    function loadComments(){
+      var commBody = document.getElementById('tbl-comments-body');
+      if (!(commBody && window.CommentsService)) return;
+      commBody.innerHTML = '<tr><td colspan="7" class="text-center meta">Loading…</td></tr>';
+      CommentsService.list(200, 0)
+        .done(function(list){
+          if (!Array.isArray(list) || list.length === 0) { commBody.innerHTML = '<tr><td colspan="7" class="text-center meta">No comments.</td></tr>'; return; }
+          var rows = list.map(function(c){
+            var title = c.post_title || ('Post ' + (c.post_id||''));
+            var uname = c.user_name || ('User ' + (c.user_id||''));
+            var snippet = String(c.content||'');
+            if (snippet.length > 120) snippet = snippet.slice(0,120) + '…';
+            var badge = c.status === 'visible' ? 'bg-success' : 'bg-warning';
+            return '<tr>'+
+              '<td>'+c.id+'</td>'+
+              '<td>'+title+'</td>'+
+              '<td>'+uname+'</td>'+
+              '<td class="small">'+snippet+'</td>'+
+              '<td>'+window.Utils.formatDate(c.created_at || new Date().toISOString())+'</td>'+
+              '<td><span class="badge '+badge+' text-uppercase">'+c.status+'</span></td>'+
+              '<td class="text-end">'+
+                '<button class="btn btn-sm btn-outline-warning me-2" onclick="ViewsActions.setCommentStatus('+c.id+', \''+(c.status==='visible'?'hidden':'visible')+'\')">'+(c.status==='visible'?'Hide':'Show')+'</button>'+
+                '<button class="btn btn-sm btn-outline-danger" onclick="ViewsActions.deleteComment('+c.id+')">Delete</button>'+
+              '</td>'+
+            '</tr>';
+          }).join('');
+          commBody.innerHTML = rows;
+        })
+        .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Failed to load comments'; commBody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">'+ msg +'</td></tr>'; });
+    }
+
+    var map = {
+      '#tab-posts': loadPosts,
+      '#tab-categories': loadCategories,
+      '#tab-tags': loadTags,
+      '#tab-users': loadUsers,
+      '#tab-comments': loadComments
+    };
+    document.querySelectorAll('[data-bs-toggle="tab"]').forEach(function(btn){
+      var target = btn.getAttribute('data-bs-target');
+      if (map[target]) {
+        btn.addEventListener('shown.bs.tab', function(){ map[target](); });
+      }
+    });
+
+    var activePane = document.querySelector('.tab-pane.show.active');
+    var activeId = activePane && ('#'+activePane.id);
+    if (activeId && map[activeId]) { map[activeId](); }
   };
 
   window.ViewsHydrate.postDetail = function(id){
@@ -802,18 +929,21 @@
       PostsService.getComments(id, 50, 0)
     ).done(function(post, tags, comms){
       try {
-        const p = Array.isArray(post) ? post[0] : post;
-        const t = Array.isArray(tags) ? tags[0] : tags;
-        const c = Array.isArray(comms) ? comms[0] : comms;
+        const p = post;
+        const t = tags;
+        const c = comms;
+
         const title = (p && p.title) || 'Untitled';
         const authorName = (p && (p.author_name || (p.author && p.author.name))) || 'Unknown';
         const catName = (p && (p.category_name)) || 'General';
         const catSlug = window.Utils.slugify(catName);
         const banner = `./assets/categories/${catSlug}-banner.jpg`;
         const tagHtml = (Array.isArray(t) ? t : []).map(function(x){ return `<span class="chip me-1"><span class="dot"></span>#${x.name}</span>`; }).join('');
-        const commentsHtml = (Array.isArray(c) ? c : []).map(function(cm){
-          const u = cm.user_name || `User ${cm.user_id || ''}`;
-          return `<div class="comment p-3 mb-2">
+        const commentsHtml = (Array.isArray(c) ? c : [])
+          .filter(function(cm){ return cm && cm.status === 'visible'; })
+          .map(function(cm){
+            const u = cm.user_name || `User ${cm.user_id || ''}`;
+            return `<div class="comment p-3 mb-2">
             <div class="small meta mb-1"><i class="bi bi-person-circle me-1"></i>${u} • <i class="bi bi-clock-history ms-2 me-1"></i>${window.Utils.formatDate(cm.created_at || new Date().toISOString())}</div>
             <div>${cm.content || ''}</div>
           </div>`;}).join('');
@@ -822,7 +952,7 @@
             <div class="glass overflow-hidden">
               <img src="${banner}" alt="${title}" class="w-100" style="max-height:300px;object-fit:cover" onerror="this.style.display='none'">
               <div class="p-4">
-                <div class="small meta mb-2">By ${authorName} • ${window.Utils.formatDate(p && p.created_at || new Date().toISOString())}</div>
+                <div class="small meta mb-2">By ${authorName} • ${window.Utils.formatDate(p && p.created_at || new Date().toISOString())} • ${catName}</div>
                 <h1 class="h3 mb-2">${title}</h1>
                 <div class="mb-3">${tagHtml}</div>
                 <div>${(p && p.content) || ''}</div>
@@ -831,18 +961,57 @@
           </section>
           <section>
             <h3 class="h5">Comments</h3>
-            ${commentsHtml || '<div class="meta">No comments yet.</div>'}
+            <div id="comments-list">${commentsHtml || '<div class="meta">No comments yet.</div>'}</div>
             <div class="mt-3 glass p-3">
               <div class="form-floating mb-2">
                 <textarea class="form-control" placeholder="Leave a comment" id="commentText" style="height: 100px"></textarea>
                 <label for="commentText">Leave a comment</label>
               </div>
-              <button class="btn btn-brand" onclick="toastr.info('Login required to comment')">Submit</button>
+              <button class="btn btn-brand" id="btnSubmitComment">Submit</button>
             </div>
           </section>`;
         const root = document.getElementById('app-root');
         if (root) root.innerHTML = html;
+        try {
+          var logged = window.Auth && window.Auth.isLoggedIn && window.Auth.isLoggedIn();
+          var ta = document.getElementById('commentText');
+          var btn = document.getElementById('btnSubmitComment');
+          if (!logged) {
+            if (ta) { ta.disabled = true; ta.placeholder = 'Login to comment'; }
+            if (btn) { btn.onclick = function(){ toastr.info('Login required to comment'); }; }
+          } else if (btn && ta && window.CommentsService) {
+            btn.onclick = function(){
+              var txt = (ta.value || '').trim();
+              if (!txt) { toastr.warning('Comment cannot be empty'); return; }
+              var me = window.Auth && window.Auth.getUser && window.Auth.getUser();
+              if (!me || !me.id) { toastr.error('Cannot determine current user'); return; }
+              btn.disabled = true;
+              CommentsService.create({ post_id: (p && p.id) || id, user_id: me.id, content: txt, status: 'visible' })
+                .done(function(){
+                  ta.value = '';
+                  PostsService.getComments(((p && p.id) || id), 50, 0).done(function(list){
+                    try {
+                      var c = Array.isArray(list) ? list : [];
+                      var commentsHtml2 = c.filter(function(cm){ return cm && cm.status === 'visible'; }).map(function(cm){
+                        var u = cm.user_name || ('User ' + (cm.user_id || ''));
+                        return `<div class="comment p-3 mb-2">
+            <div class="small meta mb-1"><i class="bi bi-person-circle me-1"></i>${u} • <i class="bi bi-clock-history ms-2 me-1"></i>${window.Utils.formatDate(cm.created_at || new Date().toISOString())}</div>
+            <div>${cm.content || ''}</div>
+          </div>`;}).join('');
+                      var listEl = document.getElementById('comments-list');
+                      if (listEl) listEl.innerHTML = commentsHtml2 || '<div class="meta">No comments yet.</div>';
+                    } catch(e){}
+                  });
+
+                  toastr.success('Comment added');
+                })
+                .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Create failed'; toastr.error(msg); })
+                .always(function(){ btn.disabled = false; });
+            };
+          }
+        } catch(e) { console.error(e); }
       } catch(e){ console.error(e); }
     }).fail(function(){});
   };
+
 })();

@@ -12,8 +12,7 @@
     { path: '/login', match: (parts) => parts[0] === 'login' && parts.length === 1, view: 'login' },
     { path: '/register', match: (parts) => parts[0] === 'register' && parts.length === 1, view: 'register' },
     { path: '/post/:id', match: (parts) => parts[0] === 'post' && parts[1], view: 'postDetail', paramIndex: 1 },
-    { path: '/dashboard', match: (parts) => parts[0] === 'dashboard' && parts.length === 1, view: 'dashboard' },
-    { path: '/profile', match: (parts) => parts[0] === 'profile' && parts.length === 1, view: 'profile' }
+    { path: '/dashboard', match: (parts) => parts[0] === 'dashboard' && parts.length === 1, view: 'dashboard' }
   ];
 
   function renderRoute() {
@@ -33,11 +32,6 @@
     if (window.Auth) {
       if (!window.Auth.isLoggedIn() && !['/','/login','/register'].includes(route.path.split('/:')[0] || route.path)) {
         if (window.toastr) toastr.warning('Please login to access this page');
-        window.Utils.navigate('/login');
-        return;
-      }
-      if (route.path === '/profile' && !window.Auth.isLoggedIn()) {
-        if (window.toastr) toastr.warning('Please login to access your profile');
         window.Utils.navigate('/login');
         return;
       }

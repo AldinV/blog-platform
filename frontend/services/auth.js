@@ -53,9 +53,15 @@
     const show = (sel, cond) => { document.querySelectorAll(`[data-link="${sel}"]`).forEach(a=>a.classList.toggle('d-none', !cond)); };
     show('#/login', !logged);
     show('#/register', !logged);
-    show('#/profile', logged);
     show('#/dashboard', isAdmin());
     const lo = document.getElementById('nav-logout'); if (lo) lo.classList.toggle('d-none', !logged);
+    const userBadge = document.getElementById('nav-user');
+    const userNameEl = document.getElementById('nav-user-name');
+    if (userBadge) userBadge.classList.toggle('d-none', !logged);
+    if (logged && userNameEl) {
+      const u = getUser();
+      userNameEl.textContent = (u && (u.name || u.email)) || 'User';
+    }
   }
 
   function bindAuthUI(){

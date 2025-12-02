@@ -17,11 +17,16 @@
             <li class="nav-item"><a class="nav-link" data-link="#/" href="#/">Home</a></li>
             <li class="nav-item"><a class="nav-link" data-link="#/dashboard" href="#/dashboard">Dashboard</a></li>
           </ul>
-          <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+          <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-lg-center">
             <li class="nav-item"><a class="nav-link" data-link="#/login" href="#/login">Login</a></li>
             <li class="nav-item"><a class="nav-link" data-link="#/register" href="#/register">Register</a></li>
-            <li class="nav-item"><a class="nav-link" data-link="#/profile" href="#/profile">Profile</a></li>
-            <li class="nav-item"><a class="nav-link d-none" id="nav-logout" href="javascript:void(0)">Logout</a></li>
+            <li class="nav-item ms-lg-2"><a class="nav-link d-none" id="nav-logout" href="javascript:void(0)">Logout</a></li>
+            <li class="nav-item ms-lg-2 d-none" id="nav-user">
+              <span class="badge rounded-pill bg-light text-dark">
+                <i class="bi bi-person-circle me-1"></i>
+                <span id="nav-user-name">User</span>
+              </span>
+            </li>
           </ul>
         </div>
       </div>
