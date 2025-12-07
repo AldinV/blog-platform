@@ -2,6 +2,19 @@
   const { formatDate, slugify } = window.Utils;
   const { posts, comments, tagsForPost, author, category } = window.MockData;
 
+  window.handleCatImgError = function(el, type) {
+    var src = el.src;
+    if (src.indexOf('default-') !== -1) {
+      el.onerror = null;
+      return;
+    }
+    
+    if (src.indexOf('.jpeg') !== -1) {
+      el.onerror = null;
+      el.src = './assets/default-' + type + '.png';
+    }
+  };
+
   function nextId(arr) { return (arr.reduce((m, x) => Math.max(m, Number(x.id)||0), 0) + 1); }
   function escape(s){
     return String(s||'')
@@ -16,12 +29,20 @@
     newPost: function () {
       var me = window.Auth && window.Auth.getUser && window.Auth.getUser();
       if (!me || !me.id) { toastr.error('Login required'); return; }
-      $.when(
-        window.CategoriesService ? CategoriesService.list(500,0) : $.Deferred().resolve([]),
-        window.TagsService ? TagsService.list(500,0) : $.Deferred().resolve([])
-      ).done(function(catList, tagList){
-        var cats = Array.isArray(catList) ? catList : [];
-        var tags = Array.isArray(tagList) ? tagList : [];
+      var runId = Date.now();
+      window.__postModalRunId = runId;
+      var cats = [];
+      var tags = [];
+      var catReq = (window.CategoriesService && CategoriesService.list) ? CategoriesService.list(500,0) : $.Deferred().resolve([]);
+      catReq
+        .done(function(catList){ if (window.__postModalRunId !== runId) return; cats = Array.isArray(catList) ? catList : []; })
+        .always(function(){
+          if (window.__postModalRunId !== runId) return;
+          var tagReq = (window.TagsService && TagsService.list) ? TagsService.list(500,0) : $.Deferred().resolve([]);
+          tagReq
+            .done(function(tagList){ if (window.__postModalRunId !== runId) return; tags = Array.isArray(tagList) ? tagList : []; })
+            .always(function(){
+              if (window.__postModalRunId !== runId) return;
         var body = `
           <div class="form-floating mb-2"><input id="fTitle" class="form-control" placeholder="Title"><label for="fTitle">Title</label></div>
           <div class="mb-2">
@@ -82,19 +103,32 @@
         if (tagSearch && tagListEl) {
           tagSearch.addEventListener('input', function(){ var q=this.value.toLowerCase(); Array.prototype.forEach.call(tagListEl.querySelectorAll('button[data-id]'), function(b){ b.classList.toggle('d-none', q && b.textContent.toLowerCase().indexOf(q) === -1); }); });
         }
-      }).fail(function(){ toastr.error('Failed to load categories/tags'); });
+            });
+        })
+        .fail(function(){ toastr.error('Failed to load categories/tags'); });
     },
 
     editPost: function(id){
-      $.when(
-        PostsService.getById(id),
-        PostsService.getTags(id),
-        window.CategoriesService ? CategoriesService.list(500,0) : $.Deferred().resolve([]),
-        window.TagsService ? TagsService.list(500,0) : $.Deferred().resolve([])
-      ).done(function(post, postTags, catList, tagList){
+      var runId = Date.now();
+      window.__postModalRunId = runId;
+      var post = null, postTags = [], cats = [], tags = [];
+      PostsService.getById(id)
+        .done(function(p){ if (window.__postModalRunId !== runId) return; post = p; })
+        .always(function(){
+          if (window.__postModalRunId !== runId) return;
+          var ptReq = (PostsService.getTags ? PostsService.getTags(id) : $.Deferred().resolve([]));
+          ptReq.done(function(pt){ if (window.__postModalRunId !== runId) return; postTags = Array.isArray(pt) ? pt : []; })
+              .always(function(){
+                if (window.__postModalRunId !== runId) return;
+                var catReq = (window.CategoriesService && CategoriesService.list) ? CategoriesService.list(500,0) : $.Deferred().resolve([]);
+                catReq.done(function(cl){ if (window.__postModalRunId !== runId) return; cats = Array.isArray(cl) ? cl : []; })
+                     .always(function(){
+                       if (window.__postModalRunId !== runId) return;
+                       var tagReq = (window.TagsService && TagsService.list) ? TagsService.list(500,0) : $.Deferred().resolve([]);
+                       tagReq.done(function(tl){ if (window.__postModalRunId !== runId) return; tags = Array.isArray(tl) ? tl : []; })
+                            .always(function(){
+                              if (window.__postModalRunId !== runId) return;
         if (!post) { toastr.error('Post not found'); return; }
-        var cats = Array.isArray(catList) ? catList : [];
-        var tags = Array.isArray(tagList) ? tagList : [];
         var selectedIds = (Array.isArray(postTags)?postTags:[]).map(function(t){ return Number(t.id); });
         var body = `
           <div class="form-floating mb-2"><input id="fTitle" class="form-control" value="${String(post.title||'').replace(/"/g,'&quot;')}" placeholder="Title"><label for="fTitle">Title</label></div>
@@ -143,7 +177,11 @@
         function addChip(id, name){ if (!selectedWrap.querySelector('[data-id="'+id+'"]')) { var chip=document.createElement('span'); chip.className='chip me-1 mb-1'; chip.setAttribute('data-id', id); chip.innerHTML = '<span class="dot"></span>#'+name+' <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1">&times;</button>'; chip.querySelector('button').onclick=function(){ chip.remove(); }; selectedWrap.appendChild(chip);} }
         if (tagListEl) { tagListEl.onclick=function(e){ var btn=e.target.closest('button[data-id]'); if(!btn) return; addChip(btn.getAttribute('data-id'), btn.textContent.replace('#','').trim()); }; }
         if (tagSearch && tagListEl) { tagSearch.addEventListener('input', function(){ var q=this.value.toLowerCase(); Array.prototype.forEach.call(tagListEl.querySelectorAll('button[data-id]'), function(b){ b.classList.toggle('d-none', q && b.textContent.toLowerCase().indexOf(q) === -1); }); }); }
-      }).fail(function(){ toastr.error('Failed to load post'); });
+                            });
+                     });
+              });
+        })
+        .fail(function(){ toastr.error('Failed to load post'); });
     },
 
     deletePost: function(id){
@@ -387,19 +425,6 @@
         ]
       });
     },
-
-    approveComment: function(id){
-      const c = window.MockData.comments.find(x=>x.id===id); if(!c) return;
-      c.status = 'visible'; window.Router.render();
-    },
-    hideComment: function(id){
-      const c = window.MockData.comments.find(x=>x.id===id); if(!c) return;
-      c.status = 'hidden'; window.Router.render();
-    },
-    deleteComment: function(id){
-      const i = window.MockData.comments.findIndex(x=>x.id===id); if(i<0) return;
-      window.MockData.comments.splice(i,1); window.Router.render();
-    },
     setCommentStatus: function(id, nextStatus){
       if (!window.CommentsService) { toastr.error('Service unavailable'); return; }
       CommentsService.setStatus(id, nextStatus)
@@ -477,7 +502,7 @@
     const postAuthor = author(post.author_id)?.name || 'Unknown';
     const cat = category(post.category_id)?.name || 'General';
     const catSlug = slugify(cat);
-    const banner = `./assets/categories/${catSlug}-banner.jpg`;
+    const banner = `./assets/categories/${catSlug}-banner.jpeg`;
 
     const postComments = comments.filter(c => c.post_id === post.id).map(c => {
       const u = author(c.user_id)?.name || 'User';
@@ -490,7 +515,7 @@
     return `
       <section class="mb-4">
         <div class="glass overflow-hidden">
-          <img src="${banner}" alt="${post.title}" class="w-100" style="max-height:300px;object-fit:cover" onerror="this.style.display='none'">
+          <img src="${banner}" alt="${post.title}" class="w-100" style="max-height:300px;object-fit:cover" onerror="window.handleCatImgError(this, 'banner')">
           <div class="p-4">
             <div class="small meta mb-2">By ${postAuthor} • ${formatDate(post.created_at)}</div>
             <h1 class="h3 mb-2">${post.title}</h1>
@@ -725,11 +750,11 @@
             const content = (p.content || '').substring(0, 120);
             const catName = p.category_name || 'General';
             const catSlug = window.Utils.slugify(catName);
-            const imgPath = `./assets/categories/${catSlug}-card.jpg`;
+            const imgPath = `./assets/categories/${catSlug}-card.jpeg`;
             return `
               <div class="col-md-6 col-lg-4">
                 <div class="card h-100 shadow-hover">
-                  <img class="card-img-top" src="${imgPath}" alt="${title}" onerror="this.style.display='none'">
+                  <img class="card-img-top" src="${imgPath}" alt="${title}" onerror="window.handleCatImgError(this, 'card')">
                   <div class="card-body d-flex flex-column">
                     <div class="small meta mb-2">${catName} • ${formatDate(p.created_at || new Date().toISOString())}</div>
                     <div class="mb-2" id="post-tags-${p.id}"><span class="meta">Loading tags…</span></div>
@@ -923,95 +948,120 @@
 
   window.ViewsHydrate.postDetail = function(id){
     if (!window.PostsService || !id) return;
-    $.when(
-      PostsService.getById(id),
-      PostsService.getTags(id),
-      PostsService.getComments(id, 50, 0)
-    ).done(function(post, tags, comms){
-      try {
-        const p = post;
-        const t = tags;
-        const c = comms;
+    var runId = Date.now();
+    window.__postDetailRunId = runId;
 
-        const title = (p && p.title) || 'Untitled';
-        const authorName = (p && (p.author_name || (p.author && p.author.name))) || 'Unknown';
-        const catName = (p && (p.category_name)) || 'General';
-        const catSlug = window.Utils.slugify(catName);
-        const banner = `./assets/categories/${catSlug}-banner.jpg`;
-        const tagHtml = (Array.isArray(t) ? t : []).map(function(x){ return `<span class="chip me-1"><span class="dot"></span>#${x.name}</span>`; }).join('');
-        const commentsHtml = (Array.isArray(c) ? c : [])
-          .filter(function(cm){ return cm && cm.status === 'visible'; })
-          .map(function(cm){
-            const u = cm.user_name || `User ${cm.user_id || ''}`;
-            return `<div class="comment p-3 mb-2">
-            <div class="small meta mb-1"><i class="bi bi-person-circle me-1"></i>${u} • <i class="bi bi-clock-history ms-2 me-1"></i>${window.Utils.formatDate(cm.created_at || new Date().toISOString())}</div>
+    PostsService.getById(id)
+      .done(function(p){
+        if (window.__postDetailRunId !== runId) return;
+        try {
+          var title = (p && p.title) || 'Untitled';
+          var authorName = (p && (p.author_name || (p.author && p.author.name))) || 'Unknown';
+          var catName = (p && p.category_name) || 'General';
+          var catSlug = window.Utils.slugify(catName);
+          var banner = `./assets/categories/${catSlug}-banner.jpeg`;
+          var html = `
+            <section class="mb-4">
+              <div class="glass overflow-hidden">
+                <img src="${banner}" alt="${title}" class="w-100" style="max-height:300px;object-fit:cover" onerror="window.handleCatImgError(this, 'banner')">
+                <div class="p-4">
+                  <div class="small meta mb-2">By ${authorName} • ${window.Utils.formatDate(p && p.created_at || new Date().toISOString())} • ${catName}</div>
+                  <h1 class="h3 mb-2">${title}</h1>
+                  <div class="mb-3" id="post-tags"><span class="meta">Loading tags…</span></div>
+                  <div>${(p && p.content) || ''}</div>
+                </div>
+              </div>
+            </section>
+            <section>
+              <h3 class="h5">Comments</h3>
+              <div id="comments-list" class="meta">Loading comments…</div>
+              <div class="mt-3 glass p-3">
+                <div class="form-floating mb-2">
+                  <textarea class="form-control" placeholder="Leave a comment" id="commentText" style="height: 100px"></textarea>
+                  <label for="commentText">Leave a comment</label>
+                </div>
+                <button class="btn btn-brand" id="btnSubmitComment">Submit</button>
+              </div>
+            </section>`;
+          var root = document.getElementById('app-root');
+          if (root) root.innerHTML = html;
+
+          try {
+            var logged = window.Auth && window.Auth.isLoggedIn && window.Auth.isLoggedIn();
+            var ta = document.getElementById('commentText');
+            var btn = document.getElementById('btnSubmitComment');
+            if (!logged) {
+              if (ta) { ta.disabled = true; ta.placeholder = 'Login to comment'; }
+              if (btn) { btn.onclick = function(){ toastr.info('Login required to comment'); }; }
+            } else if (btn && ta && window.CommentsService) {
+              btn.onclick = function(){
+                var txt = (ta.value || '').trim();
+                if (!txt) { toastr.warning('Comment cannot be empty'); return; }
+                var me = window.Auth && window.Auth.getUser && window.Auth.getUser();
+                if (!me || !me.id) { toastr.error('Cannot determine current user'); return; }
+                btn.disabled = true;
+                CommentsService.create({ post_id: (p && p.id) || id, user_id: me.id, content: txt, status: 'visible' })
+                  .done(function(){
+                    ta.value = '';
+                    if (window.__postDetailRunId !== runId) return;
+                    PostsService.getComments(((p && p.id) || id), 50, 0).done(function(list){
+                      if (window.__postDetailRunId !== runId) return;
+                      try {
+                        var c = Array.isArray(list) ? list : [];
+                        var commentsHtml2 = c.filter(function(cm){ return cm && cm.status === 'visible'; }).map(function(cm){
+                          var u = cm.user_name || ('User ' + (cm.user_id || ''));
+                          return `<div class="comment p-3 mb-2">
+            <div class=\"small meta mb-1\"><i class=\"bi bi-person-circle me-1\"></i>${u} • <i class=\"bi bi-clock-history ms-2 me-1\"></i>${window.Utils.formatDate(cm.created_at || new Date().toISOString())}</div>
             <div>${cm.content || ''}</div>
           </div>`;}).join('');
-        const html = `
-          <section class="mb-4">
-            <div class="glass overflow-hidden">
-              <img src="${banner}" alt="${title}" class="w-100" style="max-height:300px;object-fit:cover" onerror="this.style.display='none'">
-              <div class="p-4">
-                <div class="small meta mb-2">By ${authorName} • ${window.Utils.formatDate(p && p.created_at || new Date().toISOString())} • ${catName}</div>
-                <h1 class="h3 mb-2">${title}</h1>
-                <div class="mb-3">${tagHtml}</div>
-                <div>${(p && p.content) || ''}</div>
-              </div>
-            </div>
-          </section>
-          <section>
-            <h3 class="h5">Comments</h3>
-            <div id="comments-list">${commentsHtml || '<div class="meta">No comments yet.</div>'}</div>
-            <div class="mt-3 glass p-3">
-              <div class="form-floating mb-2">
-                <textarea class="form-control" placeholder="Leave a comment" id="commentText" style="height: 100px"></textarea>
-                <label for="commentText">Leave a comment</label>
-              </div>
-              <button class="btn btn-brand" id="btnSubmitComment">Submit</button>
-            </div>
-          </section>`;
-        const root = document.getElementById('app-root');
-        if (root) root.innerHTML = html;
-        try {
-          var logged = window.Auth && window.Auth.isLoggedIn && window.Auth.isLoggedIn();
-          var ta = document.getElementById('commentText');
-          var btn = document.getElementById('btnSubmitComment');
-          if (!logged) {
-            if (ta) { ta.disabled = true; ta.placeholder = 'Login to comment'; }
-            if (btn) { btn.onclick = function(){ toastr.info('Login required to comment'); }; }
-          } else if (btn && ta && window.CommentsService) {
-            btn.onclick = function(){
-              var txt = (ta.value || '').trim();
-              if (!txt) { toastr.warning('Comment cannot be empty'); return; }
-              var me = window.Auth && window.Auth.getUser && window.Auth.getUser();
-              if (!me || !me.id) { toastr.error('Cannot determine current user'); return; }
-              btn.disabled = true;
-              CommentsService.create({ post_id: (p && p.id) || id, user_id: me.id, content: txt, status: 'visible' })
-                .done(function(){
-                  ta.value = '';
-                  PostsService.getComments(((p && p.id) || id), 50, 0).done(function(list){
+                        var listEl = document.getElementById('comments-list');
+                        if (listEl) listEl.innerHTML = commentsHtml2 || '<div class="meta">No comments yet.</div>';
+                      } catch(e){}
+                    });
+                    toastr.success('Comment added');
+                  })
+                  .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Create failed'; toastr.error(msg); })
+                  .always(function(){ btn.disabled = false; });
+              };
+            }
+          } catch(e) { console.error(e); }
+
+          PostsService.getTags(p.id)
+            .done(function(tags){
+              if (window.__postDetailRunId !== runId) return;
+              try {
+                var tagHtml = (Array.isArray(tags) ? tags : []).map(function(x){ return `<span class="chip me-1"><span class="dot"></span>#${x.name}</span>`; }).join('');
+                var holder = document.getElementById('post-tags');
+                if (holder) holder.innerHTML = tagHtml || '<span class="meta">No tags</span>';
+              } catch(e){}
+            })
+            .always(function(){
+              setTimeout(function(){
+                if (window.__postDetailRunId !== runId) return;
+                PostsService.getComments(p.id, 50, 0)
+                  .done(function(list){
+                    if (window.__postDetailRunId !== runId) return;
                     try {
                       var c = Array.isArray(list) ? list : [];
-                      var commentsHtml2 = c.filter(function(cm){ return cm && cm.status === 'visible'; }).map(function(cm){
+                      var commentsHtml = c.filter(function(cm){ return cm && cm.status === 'visible'; }).map(function(cm){
                         var u = cm.user_name || ('User ' + (cm.user_id || ''));
                         return `<div class="comment p-3 mb-2">
-            <div class="small meta mb-1"><i class="bi bi-person-circle me-1"></i>${u} • <i class="bi bi-clock-history ms-2 me-1"></i>${window.Utils.formatDate(cm.created_at || new Date().toISOString())}</div>
+            <div class=\"small meta mb-1\"><i class=\"bi bi-person-circle me-1\"></i>${u} • <i class=\"bi bi-clock-history ms-2 me-1\"></i>${window.Utils.formatDate(cm.created_at || new Date().toISOString())}</div>
             <div>${cm.content || ''}</div>
           </div>`;}).join('');
                       var listEl = document.getElementById('comments-list');
-                      if (listEl) listEl.innerHTML = commentsHtml2 || '<div class="meta">No comments yet.</div>';
+                      if (listEl) listEl.innerHTML = commentsHtml || '<div class="meta">No comments yet.</div>';
                     } catch(e){}
-                  });
-
-                  toastr.success('Comment added');
-                })
-                .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Create failed'; toastr.error(msg); })
-                .always(function(){ btn.disabled = false; });
-            };
-          }
-        } catch(e) { console.error(e); }
-      } catch(e){ console.error(e); }
-    }).fail(function(){});
+                  })
+                  .fail(function(){ var listEl = document.getElementById('comments-list'); if (listEl) listEl.innerHTML = '<div class="meta">No comments yet.</div>'; });
+              }, 120);
+            });
+        } catch(e){ console.error(e); }
+      })
+      .fail(function(){
+        if (window.__postDetailRunId !== runId) return;
+        var root = document.getElementById('app-root');
+        if (root) root.innerHTML = '<div class="meta">Failed to load post.</div>';
+      });
   };
-
 })();

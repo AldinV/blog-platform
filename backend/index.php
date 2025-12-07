@@ -33,6 +33,9 @@ Flight::register('postsService', 'PostsService');
 Flight::register('commentsService', 'CommentsService');
 Flight::register('auth_middleware', 'AuthMiddleware');
 
+require_once __DIR__ . '/Seeder.php';
+Seeder::run();
+
 // JWT middleware
 Flight::before('route', function(){
   $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
