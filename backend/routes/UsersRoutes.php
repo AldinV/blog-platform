@@ -117,6 +117,68 @@ Flight::route('POST /users', function(){
 });
 
 /**
+ * @OA\Get(
+ *   path="/me",
+ *   tags={"users"},
+ *   summary="Get current user's profile",
+ *   @OA\Response(
+ *     response=200,
+ *     description="Current user profile",
+ *     @OA\JsonContent(type="object",
+ *       @OA\Property(property="id", type="integer", example=1),
+ *       @OA\Property(property="name", type="string", example="Jane Doe"),
+ *       @OA\Property(property="email", type="string", example="jane@example.com"),
+ *       @OA\Property(property="role", type="string", example="user"),
+ *       @OA\Property(property="created_at", type="string", example="2025-01-01 12:00:00")
+ *     )
+ *   )
+ * )
+ */
+Flight::route('GET /me', function(){
+  try {
+    $jwtUser = Flight::get('user');
+    $userId = is_array($jwtUser) ? ((int)($jwtUser['id'] ?? 0)) : ((int)($jwtUser->id ?? 0));
+    if ($userId <= 0) { Flight::json(['error' => 'Unauthenticated'], 401); return; }
+    $user = Flight::usersService()->getById($userId);
+    if (!$user) { Flight::json(['error' => 'User not found'], 404); return; }
+    unset($user['password_hash']);
+    Flight::json($user);
+  } catch (Throwable $e) {
+    Flight::json(['error' => $e->getMessage()], 400);
+  }
+});
+
+/**
+ * @OA\Put(
+ *   path="/me",
+ *   tags={"users"},
+ *   summary="Update current user's profile",
+ *   @OA\RequestBody(required=true, @OA\JsonContent(
+ *     @OA\Property(property="name", type="string", example="Jane Doe"),
+ *     @OA\Property(property="email", type="string", format="email", example="jane@example.com")
+ *   )),
+ *   @OA\Response(response=200, description="Updated user"),
+ *   @OA\Response(response=400, description="Validation error")
+ * )
+ */
+Flight::route('PUT /me', function(){
+  try {
+    $jwtUser = Flight::get('user');
+    $userId = is_array($jwtUser) ? ((int)($jwtUser['id'] ?? 0)) : ((int)($jwtUser->id ?? 0));
+    if ($userId <= 0) { Flight::json(['error' => 'Unauthenticated'], 401); return; }
+    $payload = Flight::request()->data->getData();
+    $allowed = ['name','email'];
+    $data = [];
+    foreach ($allowed as $key) {
+      if (isset($payload[$key])) { $data[$key] = $payload[$key]; }
+    }
+    Flight::json(Flight::usersService()->update($userId, $data));
+  } catch (Throwable $e) {
+    Flight::json(['error' => $e->getMessage()], 400);
+  }
+});
+
+/**
  * @OA\Put(
  *   path="/users/{id}",
  *   tags={"users"},

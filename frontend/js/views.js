@@ -725,6 +725,32 @@
     `);
   }
 
+  function profile() {
+    return `
+      <div class="col-md-8 col-lg-6 col-xl-5 mx-auto">
+        <div class="glass p-4 p-md-5">
+          <div class="text-center mb-4">
+            <h2 class="h3">Your Profile</h2>
+            <p class="meta">Update your basic information.</p>
+          </div>
+          <form id="profileForm">
+            <div class="form-floating mb-3">
+              <input type="text" class="form-control" id="profName" placeholder="Your name">
+              <label for="profName">Name</label>
+            </div>
+            <div class="form-floating mb-3">
+              <input type="email" class="form-control" id="profEmail" placeholder="you@example.com">
+              <label for="profEmail">Email</label>
+            </div>
+            <button type="button" class="btn btn-brand w-100" id="btnSaveProfile">
+              <i class="bi bi-save me-2"></i>Save Changes
+            </button>
+          </form>
+        </div>
+      </div>
+    `;
+  }
+
   function notFound() {
     return `
       <div class="text-center py-5">
@@ -735,7 +761,7 @@
     `;
   }
 
-  window.Views = { home, postDetail, login, register, dashboard, notFound };
+  window.Views = { home, postDetail, login, register, dashboard, profile, notFound };
 
   window.ViewsHydrate = window.ViewsHydrate || {};
   window.ViewsHydrate.home = function(){
@@ -792,6 +818,49 @@
         } catch(e){ console.error(e); }
       })
       .fail(function(){});
+  };
+
+  window.ViewsHydrate.profile = function(){
+    try {
+      if (!window.UsersService) return;
+      var nameEl = document.getElementById('profName');
+      var emailEl = document.getElementById('profEmail');
+      if (!nameEl || !emailEl) return;
+
+      UsersService.me()
+        .done(function(u){
+          try {
+            nameEl.value = (u && u.name) || '';
+            emailEl.value = (u && u.email) || '';
+          } catch(e) {}
+        })
+        .fail(function(xhr){
+          var msg = (xhr && xhr.responseJSON && (xhr.responseJSON.error || xhr.responseJSON.message)) || 'Failed to load profile';
+          if (window.toastr) toastr.error(msg);
+        });
+
+      var btn = document.getElementById('btnSaveProfile');
+      if (btn) {
+        btn.onclick = function(){
+          var name = (nameEl || {}).value || '';
+          var email = (emailEl || {}).value || '';
+          if (!name.trim() || !email.trim()) {
+            if (window.toastr) toastr.warning('Name and email are required');
+            return;
+          }
+          UsersService.updateMe({ name: name.trim(), email: email.trim() })
+            .done(function(updated){
+              if (window.toastr) toastr.success('Profile updated');
+              var el = document.getElementById('nav-user-name');
+              if (el) el.textContent = (updated && (updated.name || updated.email)) || el.textContent;
+            })
+            .fail(function(xhr){
+              var msg = (xhr && xhr.responseJSON && (xhr.responseJSON.error || xhr.responseJSON.message)) || 'Update failed';
+              if (window.toastr) toastr.error(msg);
+            });
+        };
+      }
+    } catch(e) { console.error(e); }
   };
 
   window.ViewsHydrate.dashboard = function(){

@@ -54,6 +54,7 @@
     show('#/login', !logged);
     show('#/register', !logged);
     show('#/dashboard', isAdmin());
+    show('#/profile', logged);
     const lo = document.getElementById('nav-logout'); if (lo) lo.classList.toggle('d-none', !logged);
     const userBadge = document.getElementById('nav-user');
     const userNameEl = document.getElementById('nav-user-name');

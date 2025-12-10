@@ -47,5 +47,22 @@
       }).done(function(resp){ def.resolve(resp); }).fail(function(err){ def.reject(err); });
     }).promise();
   }
-  window.UsersService = { list, getById, create, update, remove };
+  function me(){
+    return $.Deferred(function(def){
+      RestClient.get('me', function(resp){ def.resolve(resp); }, function(err){ def.reject(err); });
+    }).promise();
+  }
+  function updateMe(data){
+    return $.Deferred(function(def){
+      $.ajax({
+        url: window.Constants.PROJECT_BASE_URL + 'me',
+        type: 'PUT',
+        beforeSend: function(xhr){ var t=localStorage.getItem('user_token'); if(t) xhr.setRequestHeader('Authentication', t); },
+        data: JSON.stringify(data),
+        contentType: 'application/json',
+        dataType: 'json'
+      }).done(function(resp){ def.resolve(resp); }).fail(function(err){ def.reject(err); });
+    }).promise();
+  }
+  window.UsersService = { list, getById, create, update, remove, me, updateMe };
 })();
