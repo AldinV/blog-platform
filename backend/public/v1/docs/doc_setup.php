@@ -1,5 +1,13 @@
 <?php
 use OpenApi\Annotations as OA;
+
+/**
+ * @OA\OpenApi(
+ *   security={
+ *     {"BearerAuth":{}}
+ *   }
+ * )
+ */
 /**
  * @OA\Info(
  *   title="Blog Platform API",
@@ -22,9 +30,9 @@ use OpenApi\Annotations as OA;
 
 /**
  * @OA\SecurityScheme(
- *   securityScheme="ApiKey",
- *   type="apiKey",
- *   in="header",
- *   name="Authentication"
+ *   securityScheme="BearerAuth",
+ *   type="http",
+ *   scheme="bearer",
+ *   bearerFormat="JWT"
  * )
  */

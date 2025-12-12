@@ -23,11 +23,30 @@
     if (!route) {
       setHTML(root, window.Views.notFound());
       window.Components.Navbar.setActive(null);
+      if (window.Auth) { window.Auth.bindAuthUI(); window.Auth.updateNavbar(); }
       return;
     }
 
     let param = null;
     if (route.paramIndex !== undefined) param = parts[route.paramIndex];
+
+    if (window.Auth) {
+      if (!window.Auth.isLoggedIn() && !['/','/login','/register'].includes(route.path.split('/:')[0] || route.path)) {
+        if (window.toastr) toastr.warning('Please login to access this page');
+        window.Utils.navigate('/login');
+        return;
+      }
+      if (route.path === '/dashboard' && !window.Auth.isAdmin()) {
+        if (window.Auth.isLoggedIn()) {
+          if (window.toastr) toastr.warning('Admins only');
+          window.Utils.navigate('/');
+        } else {
+          if (window.toastr) toastr.warning('Please login to access the dashboard');
+          window.Utils.navigate('/login');
+        }
+        return;
+      }
+    }
 
     const viewFn = window.Views[route.view];
     if (typeof viewFn !== 'function') {
@@ -38,6 +57,11 @@
 
     window.Components.Navbar.setActive(route.path.split('/:')[0] || route.path);
     window.scrollTo({ top: 0, behavior: 'instant' });
+    if (window.Auth) { window.Auth.bindAuthUI(); window.Auth.updateNavbar(); }
+
+    if (window.ViewsHydrate && typeof window.ViewsHydrate[route.view] === 'function') {
+      try { window.ViewsHydrate[route.view](param); } catch (e) { console.error(e); }
+    }
   }
 
   function init() {

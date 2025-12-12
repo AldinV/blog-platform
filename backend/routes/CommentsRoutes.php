@@ -74,6 +74,7 @@ Flight::route('GET /comments/@id', function(int $id){
  * )
  */
 Flight::route('POST /comments', function(){
+  Flight::auth_middleware()->authorizeRoles([Roles::ADMIN, Roles::USER]);
   try {
     $data = Flight::request()->data->getData();
     Flight::json(Flight::commentsService()->create($data));
@@ -96,6 +97,7 @@ Flight::route('POST /comments', function(){
  * )
  */
 Flight::route('PUT /comments/@id', function(int $id){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     $data = Flight::request()->data->getData();
     Flight::json(Flight::commentsService()->update($id, $data));
@@ -114,6 +116,7 @@ Flight::route('PUT /comments/@id', function(int $id){
  * )
  */
 Flight::route('DELETE /comments/@id', function(int $id){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     Flight::json([ 'deleted' => Flight::commentsService()->delete($id) ]);
   } catch (Throwable $e) {
@@ -158,6 +161,7 @@ Flight::route('GET /posts/@postId/comments', function(int $postId){
  * )
  */
 Flight::route('PATCH /comments/@id/status', function(int $id){
+  Flight::auth_middleware()->authorizeRole(Roles::ADMIN);
   try {
     $data = Flight::request()->data->getData();
     $status = isset($data['status']) ? (string)$data['status'] : '';
