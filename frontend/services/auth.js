@@ -69,17 +69,50 @@
     const btnLogin = document.getElementById('btnLogin');
     if (btnLogin){
       btnLogin.onclick = function(){
-        const email = (document.getElementById('loginEmail')||{}).value || '';
+        let email = (document.getElementById('loginEmail')||{}).value || '';
         const password = (document.getElementById('loginPassword')||{}).value || '';
+        email = email.trim();
+        if (!email || !password) {
+          toastr.warning('Email and password are required');
+          return;
+        }
+        const re = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+        if (!re.test(email)) {
+          toastr.warning('Enter a valid email address');
+          return;
+        }
         login(email, password);
       };
     }
     const btnRegister = document.getElementById('btnRegister');
     if (btnRegister){
       btnRegister.onclick = function(){
-        const name = (document.getElementById('regName')||{}).value || '';
-        const email = (document.getElementById('regEmail')||{}).value || '';
+        let name = (document.getElementById('regName')||{}).value || '';
+        let email = (document.getElementById('regEmail')||{}).value || '';
         const password = (document.getElementById('regPassword')||{}).value || '';
+        name = name.trim();
+        email = email.trim();
+        if (!name || !email || !password) {
+          toastr.warning('Name, email and password are required');
+          return;
+        }
+        const re = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+        if (!re.test(email)) {
+          toastr.warning('Enter a valid email address');
+          return;
+        }
+        if (name.length > 120) {
+          toastr.warning('Name must be at most 120 characters');
+          return;
+        }
+        if (email.length > 190) {
+          toastr.warning('Email must be at most 190 characters');
+          return;
+        }
+        if (password.length < 6) {
+          toastr.warning('Password must be at least 6 characters');
+          return;
+        }
         register({ name, email, password, role: window.Constants.USER_ROLE });
       };
     }

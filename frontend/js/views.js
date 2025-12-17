@@ -70,6 +70,9 @@
                 var content = (document.getElementById('fContent')||{}).value || '';
                 var category_id = Number((document.getElementById('fCategory')||{}).value);
                 if (!title.trim() || !content.trim() || !category_id) { toastr.warning('Title, content and category are required'); return; }
+                if (title.trim().length > 200) { toastr.warning('Title must be at most 200 characters'); return; }
+                if (content.trim().length > 10000) { toastr.warning('Content must be at most 10000 characters'); return; }
+
                 var selected = Array.prototype.map.call((document.querySelectorAll('#fSelectedTags .chip[data-id]')||[]), function(el){ return Number(el.getAttribute('data-id')); });
                 PostsService.create({ title: title.trim(), content: content.trim(), category_id: category_id, author_id: me.id })
                   .done(function(created){
@@ -157,6 +160,9 @@
                 var content = (document.getElementById('fContent')||{}).value || '';
                 var category_id = Number((document.getElementById('fCategory')||{}).value);
                 if (!title.trim() || !content.trim() || !category_id) { toastr.warning('Title, content and category are required'); return; }
+                if (title.trim().length > 200) { toastr.warning('Title must be at most 200 characters'); return; }
+                if (content.trim().length > 10000) { toastr.warning('Content must be at most 10000 characters'); return; }
+
                 var selected = Array.prototype.map.call((document.querySelectorAll('#fSelectedTags .chip[data-id]')||[]), function(el){ return Number(el.getAttribute('data-id')); });
                 PostsService.update(id, { title: title.trim(), content: content.trim(), category_id: category_id })
                   .done(function(){
@@ -208,6 +214,8 @@
           { label: 'Create', class: 'btn btn-brand', onClick: function(){
               var name = (document.getElementById('cName')||{}).value || '';
               if (!name.trim()) { toastr.warning('Name is required'); return; }
+              if (name.trim().length > 100) { toastr.warning('Name must be at most 100 characters'); return; }
+
               CategoriesService.create({ name: name.trim() })
                 .done(function(){ toastr.success('Category created'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); })
                 .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Create failed'; toastr.error(msg); });
@@ -228,6 +236,8 @@
               { label: 'Save', class: 'btn btn-brand', onClick: function(){
                   var name = (document.getElementById('cName')||{}).value || '';
                   if (!name.trim()) { toastr.warning('Name is required'); return; }
+                  if (name.trim().length > 100) { toastr.warning('Name must be at most 100 characters'); return; }
+
                   CategoriesService.update(id, { name: name.trim() })
                     .done(function(){ toastr.success('Category updated'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); })
                     .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Update failed'; toastr.error(msg); });
@@ -270,6 +280,8 @@
           { label: 'Create', class: 'btn btn-brand', onClick: function(){
               var name = (document.getElementById('tName')||{}).value || '';
               if (!name.trim()) { toastr.warning('Tag is required'); return; }
+              if (name.trim().length > 50) { toastr.warning('Tag must be at most 50 characters'); return; }
+
               TagsService.create({ name: name.trim() })
                 .done(function(){ toastr.success('Tag created'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); })
                 .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Create failed'; toastr.error(msg); });
@@ -290,6 +302,8 @@
               { label: 'Save', class: 'btn btn-brand', onClick: function(){
                   var name = (document.getElementById('tName')||{}).value || '';
                   if (!name.trim()) { toastr.warning('Tag is required'); return; }
+                  if (name.trim().length > 50) { toastr.warning('Tag must be at most 50 characters'); return; }
+
                   TagsService.update(id, { name: name.trim() })
                     .done(function(){ toastr.success('Tag updated'); document.querySelector('#app-modal .btn-close').click(); if (window.ViewsHydrate && window.ViewsHydrate.dashboard) window.ViewsHydrate.dashboard(); })
                     .fail(function(xhr){ var msg=(xhr&&xhr.responseJSON&&(xhr.responseJSON.error||xhr.responseJSON.message))||'Update failed'; toastr.error(msg); });
@@ -391,10 +405,18 @@
               var password = (document.getElementById('uPassword')||{}).value || '';
               var role = (document.getElementById('uRoleNew')||{}).value || 'user';
               if (!name.trim() || !email.trim() || !password) { toastr.warning('Name, email and password are required'); return; }
+              name = name.trim();
+              email = email.trim();
+              var re = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+              if (!re.test(email)) { toastr.warning('Enter a valid email address'); return; }
+              if (name.length > 120) { toastr.warning('Name must be at most 120 characters'); return; }
+              if (email.length > 190) { toastr.warning('Email must be at most 190 characters'); return; }
+              if (password.length < 6) { toastr.warning('Password must be at least 6 characters'); return; }
+
               $.ajax({
                 url: window.Constants.PROJECT_BASE_URL + 'auth/register',
                 type: 'POST',
-                data: JSON.stringify({ name: name.trim(), email: email.trim(), password: password, role: window.Constants.USER_ROLE }),
+                data: JSON.stringify({ name: name, email: email, password: password, role: window.Constants.USER_ROLE }),
                 contentType: 'application/json',
                 dataType: 'json'
               }).done(function(){
@@ -848,7 +870,22 @@
             if (window.toastr) toastr.warning('Name and email are required');
             return;
           }
-          UsersService.updateMe({ name: name.trim(), email: email.trim() })
+          name = name.trim();
+          email = email.trim();
+          var re = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+          if (!re.test(email)) {
+            if (window.toastr) toastr.warning('Enter a valid email address');
+            return;
+          }
+          if (name.length > 120) {
+            if (window.toastr) toastr.warning('Name must be at most 120 characters');
+            return;
+          }
+          if (email.length > 190) {
+            if (window.toastr) toastr.warning('Email must be at most 190 characters');
+            return;
+          }
+          UsersService.updateMe({ name: name, email: email })
             .done(function(updated){
               if (window.toastr) toastr.success('Profile updated');
               var el = document.getElementById('nav-user-name');
@@ -1066,6 +1103,8 @@
               btn.onclick = function(){
                 var txt = (ta.value || '').trim();
                 if (!txt) { toastr.warning('Comment cannot be empty'); return; }
+                if (txt.length > 2000) { toastr.warning('Comment must be at most 2000 characters'); return; }
+
                 var me = window.Auth && window.Auth.getUser && window.Auth.getUser();
                 if (!me || !me.id) { toastr.error('Cannot determine current user'); return; }
                 btn.disabled = true;

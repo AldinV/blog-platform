@@ -26,6 +26,15 @@ class AuthService extends BaseService {
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
       return ['success' => false, 'error' => 'Invalid email.'];
     }
+    if (strlen($password) < 6) {
+      return ['success' => false, 'error' => 'Password must be at least 6 characters.'];
+    }
+    if (mb_strlen($name) > 120) {
+      return ['success' => false, 'error' => 'Name must be at most 120 characters.'];
+    }
+    if (mb_strlen($email) > 190) {
+      return ['success' => false, 'error' => 'Email must be at most 190 characters.'];
+    }
     $existing = $this->authDao->getByEmail($email);
     if ($existing) {
       return ['success' => false, 'error' => 'Email already registered.'];
